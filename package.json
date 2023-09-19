@@ -1,9 +1,9 @@
 {
   "name": "@renegaderocks/sacred",
-  "version": "0.0.2",
-  "main": "./dist/src/index.js",
+  "version": "0.0.3",
+  "main": "./dist/index.js",
   "scripts": {
-    "build": "bun run clean && ./node_modules/.bin/tsc --project tsconfig.production.json",
+    "build": "bun run clean && bun build.js",
     "clean": "rm -rf ./dist",
     "publish": "bun publish.js"
   },
@@ -12,14 +12,14 @@
     "url": "https://github.com/chrishumboldt/renegade-sacred"
   },
   "dependencies": {
-    "@renegaderocks/utility": "^1.0.10"
+    "@renegaderocks/utility": "latest"
   },
   "devDependencies": {
+    "bun-plugin-dts": "^0.2.0",
     "bun-types": "latest",
-    "prettier": "2",
-    "typescript": "^5.2.2"
+    "prettier": "2"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "latest"
   }
 }

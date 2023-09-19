@@ -19,13 +19,3 @@ export type UnitFunctor = <I>(input: I) => Unit<I>
 
 export type UnitMap<I> = <O>(func: (input: I) => O) => Unit<O>
 
-export interface UnitMapEither<I, O> {
-  condition: (input: I) => boolean
-  left?: (input: I) => O
-  right: (input: I) => O
-}
-
-export interface UnitTask<I> {
-  (): Promise<I>
-}
-

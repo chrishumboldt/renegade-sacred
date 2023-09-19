@@ -2,7 +2,6 @@ import type {
   Unit,
   UnitFilterFuncResult,
   UnitFunctor,
-  UnitMapEither,
 } from '../type'
 
 // A generic unit.
@@ -59,63 +58,9 @@ export function filter<I>(func: (input: I) => UnitFilterFuncResult) {
   }
 }
 
-export function log<I>(prefix?: string, stringify?: boolean) {
-  return (unit: Unit<I>): Unit<I> => {
-    logRun(unit, prefix, stringify, unit.type === 'right')
-
-    return unit
-  }
-}
-
-export function logForce<I>(prefix?: string, stringify?: boolean) {
-  return (unit: Unit<I>): Unit<I> => {
-    logRun(unit, prefix, stringify, true)
-
-    return unit
-  }
-}
-
-function logRun(
-  unit: Unit<any>,
-  prefix = 'LOG',
-  stringify = true,
-  force = false,
-) {
-  if (force === true) {
-    const value = unit.flatten()
-    console.log(
-      `[${prefix.toUpperCase()}]:`,
-      stringify ? JSON.stringify(value) : value,
-    )
-  }
-}
-
 export function map<I, O>(func: (input: I) => O) {
   return (unit: Unit<I>): Unit<O> => {
     return unit.type === 'right' ? unit.map(func) : (unit as unknown as Unit<O>)
-  }
-}
-
-export function mapEither<I, O>({
-  condition,
-  left: leftFunc,
-  right: rightFunc,
-}: UnitMapEither<I, O>) {
-  return (unit: Unit<I>): Unit<O> | Unit<I> => {
-    if (unit.chain(condition) === true) {
-      return unit.map(rightFunc)
-    }
-
-    // Fallback to the left functor if nothing is provided.
-    return leftFunc ? unit.map(leftFunc) : left(unit.flatten())
-  }
-}
-
-// If the unit is in a left state then short circuit by returning the unit
-// as is. We overwrite the type to make sure Typescript is still happy.
-export function merge<I, O>(func: (input: I) => O) {
-  return (unit: Unit<I>): O | Unit<I> => {
-    return unit.type === 'right' ? unit.chain(func) : unit
   }
 }
 

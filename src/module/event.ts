@@ -1,8 +1,8 @@
+import { isArray, objectCreateFromKeyValue, pipe } from '@renegaderocks/utility'
+import type { SacredEvent, SacredEventAdd, SacredPassedIn } from '../type'
 import { sacredAggregateAuto, sacredAggregateValue } from './aggregate'
 import { sacredLogError } from './log'
 import { filter, map, tap, unit } from './unit'
-import { isArray, objectCreateFromKeyValue, pipe } from '@renegaderocks/utility'
-import type { SacredEvent, SacredEventAdd, SacredPassedIn } from '../type'
 
 function aggregateAuto(input: SacredEventAdd) {
   sacredAggregateAuto({
