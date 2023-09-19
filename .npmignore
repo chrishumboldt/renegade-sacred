@@ -1,0 +1,15 @@
+# Folders to ignore.
+node_modules/
+src/
+
+# Files to ignore.
+.gitattributes
+.gitignore
+.npmingore
+.npmrc
+.nvmrc
+.prettierrc.yml
+bun.lockb
+publish.js
+tsconfig.json
+tsconfig.production.json

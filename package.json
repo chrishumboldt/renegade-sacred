@@ -1,0 +1,25 @@
+{
+  "name": "@renegaderocks/sacred",
+  "version": "0.0.1",
+  "main": "./dist/src/index.js",
+  "scripts": {
+    "build": "bun run clean && ./node_modules/.bin/tsc --project tsconfig.production.json",
+    "clean": "rm -rf ./dist",
+    "publish": "bun publish.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chrishumboldt/renegade-sacred"
+  },
+  "dependencies": {
+    "@renegaderocks/utility": "^1.0.10"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "prettier": "2",
+    "typescript": "^5.2.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

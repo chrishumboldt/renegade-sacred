@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "outDir": "./dist",
+    "rootDir": "./",
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "types": [
+      "bun-types"
+    ]
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}
