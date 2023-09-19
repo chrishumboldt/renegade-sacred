@@ -15,7 +15,7 @@
     "@renegaderocks/utility": "latest"
   },
   "devDependencies": {
-    "bun-plugin-dts": "^0.2.0",
+    "bun-plugin-dts": "latest",
     "bun-types": "latest",
     "prettier": "2"
   },
