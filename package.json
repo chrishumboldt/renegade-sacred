@@ -1,6 +1,6 @@
 {
   "name": "@renegaderocks/sacred",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "./dist/src/index.js",
   "scripts": {
     "build": "bun run clean && ./node_modules/.bin/tsc --project tsconfig.production.json",
