@@ -2,6 +2,7 @@ import { sacredAggregateValue } from './aggregate'
 import { sacredEventsCollapse } from './event'
 import { sacredLogLedger } from './log-ledger'
 import { observable } from './observable'
+import { sacredRevert } from './revert'
 import { sacredUnset } from './unset'
 import { sacredUpsert } from './upsert'
 import type {
@@ -79,6 +80,9 @@ export function sacred<T = unknown>({
     },
     observe(effect: ObservableEffect, triggerOnObserve = true) {
       return observableValue.observe(effect, triggerOnObserve)
+    },
+    revert(steps = 1) {
+      return sacredRevert({ events, observableValue, originalValue }, steps)
     },
     unset(input: SacredEventUnset) {
       return sacredUnset({

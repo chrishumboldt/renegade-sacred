@@ -21,6 +21,9 @@ One more bonus is the fact that types are adhered to. In javascript we can chang
 - [Sacred Merge](#sacred-merge)
 - [Sacred Objects](#sacred-objects)
 - [Sacred Observers](#sacred-observers)
+- [Sacred Persist](#sacred-persist)
+- [Sacred Revert](#sacred-revert)
+- [Sacred Select](#sacred-select)
 - [Sacred Side Effects](#sacred-side-effects)
 - [Sacred Signature](#sacred-signature)
 - [Sacred Unset](#sacred-unset)
@@ -62,6 +65,19 @@ sacredThing.getEvents().length // Only going to be 2
 sacredThing.getValue() // Darth Vader
 ```
 
+By default `changeOnly` compares by reference equality, which works well for primitives but rarely dedupes objects or arrays (a new literal is almost never `===` the previous one, even with identical contents). Pass a comparator function instead if you need real dedupe for those.
+
+```javascript
+const sacredThing = sacred({
+  value: { id: 1 },
+  changeOnly: (previousValue, nextValue) => previousValue.id === nextValue.id,
+})
+
+sacredThing.upsert({ value: { id: 1 } }) // applied (first write always applies)
+sacredThing.upsert({ value: { id: 1 } }) // ignored, same id as the previous event
+sacredThing.upsert({ value: { id: 2 } }) // applied
+```
+
 #### Sacred Functions
 
 | Function                                          | Description                                                             |
@@ -76,6 +92,7 @@ sacredThing.getValue() // Darth Vader
 | `[sacredRef].getValueType()`                      | Get the sacred thing value type.                                        |
 | `[sacredRef].logLedger()`                         | Log out the sacred thing ledger to the console.                         |
 | `[sacredRef].observe(function, triggerOnObserve)` | Observe a sacred thing and react to the events.                         |
+| `[sacredRef].revert(steps)`                       | Undo the last `steps` events (default `1`).                             |
 | `[sacredRef].unset(options)`                      | Unset something on a sacred thing.                                      |
 | `[sacredRef].upsert(options)`                     | Upsert a sacred thing with a new event.                                 |
 
@@ -201,7 +218,7 @@ sacredName.upsert({ value: 'Darth Vader' })
 // Value: [ 'Darth Vader', 9 ]
 ```
 
-Just like a regular sacred, `observe` can be called more than once — each call is its own independent subscription, and unobserving one doesn't affect the others.
+Just like a regular sacred, `observe` can be called more than once. Each call is its own independent subscription, and unobserving one doesn't affect the others.
 
 ```javascript
 const merged = sacredMerge([sacredName, sacredAge])
@@ -396,7 +413,7 @@ You can also release your observer by running the "unobserve" function.
 sacredObserver$.unobserve()
 ```
 
-If one of your observers throws, it won't stop the others from being notified. The error is caught, logged as a `[SACRED ERROR]` to the console, and the rest of the observers still run. The one exception is the immediate call an observer gets when it's first registered (see `triggerOnObserve` below) — that one runs synchronously as part of your own `observe()` call, so a throw there surfaces straight back to you rather than being swallowed.
+If one of your observers throws, it won't stop the others from being notified. The error is caught, logged as a `[SACRED ERROR]` to the console, and the rest of the observers still run. The one exception is the immediate call an observer gets when it's first registered (see `triggerOnObserve` below). That one runs synchronously as part of your own `observe()` call, so a throw there surfaces straight back to you rather than being swallowed.
 
 If you don't want your function to run immediately on observation just set the `triggerOnObserve` to `false`.
 
@@ -412,6 +429,83 @@ const sacredObserver$ = sacredThing.observe(() => {
 sacredThing.upsert({ value: 'Padawan Anakin Skywalker' })
 // Event happened!
 ```
+
+#### Sacred Persist
+
+Since a sacred is just an original value plus an event history, it's already JSON-safe to reconstruct: `sacred()` accepts an `events` array to rebuild its history from. `sacredSerialize`/`sacredHydrate` make that round-trip explicit.
+
+```javascript
+import { sacred, sacredHydrate, sacredSerialize } from '@renegaderocks/sacred'
+
+const sacredThing = sacred({ value: { name: 'Ani' } })
+sacredThing.upsert({ key: 'name', value: 'Darth Vader' })
+
+// Save it anywhere JSON.stringify can go, such as localStorage, a file, or a DB row.
+const saved = JSON.stringify(sacredSerialize(sacredThing))
+
+// ...later, possibly in a different process...
+const restored = sacredHydrate(JSON.parse(saved))
+
+restored.getValue() // { name: 'Darth Vader' }
+```
+
+`sacredHydrate` takes the same options as `sacred` (`eventLimit`, `changeOnly`, etc.) as an optional second argument, so a hydrated sacred behaves exactly like the original going forward. Where to actually store the serialized data is left up to you. Sacred has no opinion on localStorage vs. a database vs. anything else.
+
+#### Sacred Revert
+
+Because a sacred's value is derived from its event history, undoing a change is just dropping the most recent events and recomputing.
+
+```javascript
+import { sacred } from '@renegaderocks/sacred'
+
+const sacredThing = sacred({ value: { age: 9 } })
+
+sacredThing.upsert({ key: 'age', value: 10 })
+sacredThing.upsert({ key: 'age', value: 11 })
+
+sacredThing.revert() // undoes age: 11
+sacredThing.getValue() // { age: 10 }
+
+sacredThing.revert(2) // undoes the write before it too
+sacredThing.getValue() // { age: 9 }
+```
+
+`revert` cannot cross an `eventLimit` auto-aggregation boundary (see [Sacred Auto Aggregation](#sacred-auto-aggregation)). Once older events have been collapsed into one synthetic aggregate event, the individual steps inside that collapse are gone for good. You can revert back to the collapsed aggregate, but not to a state that only existed in between.
+
+#### Sacred Select
+
+`sacredSelect` derives a value from a sacred and only notifies its observers when the *selected* slice actually changes, not on every change to the source. This is cheap because of structural sharing: writing to one branch of a sacred object never touches the reference of an untouched sibling branch, so a selector comparing by reference can tell at a glance whether its slice was affected.
+
+```javascript
+import { sacred, sacredSelect } from '@renegaderocks/sacred'
+
+const appState = sacred({
+  value: { ui: { sidebarOpen: false }, auth: { token: 'a' } },
+})
+
+const uiState = sacredSelect(appState, state => state.ui)
+
+uiState.observe(ui => {
+  console.log('UI:', ui)
+})
+// UI: { sidebarOpen: false }
+
+appState.upsert({ key: 'auth.token', value: 'b' })
+// (nothing logged, since auth isn't part of the selection)
+
+appState.upsert({ key: 'ui.sidebarOpen', value: true })
+// UI: { sidebarOpen: true }
+```
+
+By default a selector's change detection uses reference equality (`Object.is`). If your selector builds a new object or array on every call (so it would never be reference-equal even when "the same"), pass a custom `isEqual`.
+
+```javascript
+const idOnly = sacredSelect(appState, state => ({ id: state.id }), {
+  isEqual: (a, b) => a.id === b.id,
+})
+```
+
+`sacredSelect` is a free function that takes a sacred, the same way `sacredMerge` does. It is not a method on `Sacred` itself, since it builds a new derived thing rather than operating on the sacred it's given.
 
 #### Sacred Side Effects
 

@@ -10,9 +10,19 @@ export type Sacred<T = any> = {
   getValueType: () => any
   logLedger: () => void
   observe: (effect: ObservableEffect, triggerOnObserve?: boolean) => Observer
+  // Pops the last `steps` events (default 1) and recomputes the value.
+  // Cannot revert past an eventLimit collapse boundary - see sacredRevert.
+  revert: (steps?: number) => void
   unset: (input: SacredEventUnset) => void
   upsert: (input: SacredEventUpsert<T>) => void
 }
+
+// true/false gives reference-equality deduping (the default). Pass a
+// comparator when you need real dedupe for object/array values, since
+// reference equality almost never matches there.
+export type SacredChangeOnly =
+  | boolean
+  | ((previousValue: any, nextValue: any) => boolean)
 
 export type SacredAggregateAuto = {
   events: SacredEvent[]
@@ -50,7 +60,7 @@ export type SacredEvent<T = unknown> = {
 }
 
 export type SacredEventAdd = SacredEventChange & {
-  changeOnly?: boolean
+  changeOnly?: SacredChangeOnly
   checkType?: boolean
   debug?: boolean
   events: SacredEvent[]
@@ -78,7 +88,7 @@ export type SacredEventUpsert<T = any> =
   | (SacredEventChange & { key: number | string; value: any })
 
 export type SacredInput<T = any> = {
-  changeOnly?: boolean
+  changeOnly?: SacredChangeOnly
   debug?: boolean
   // Caps how many events accumulate before older ones are collapsed into
   // one aggregate. Defaults to 1000 so writes to object/array sacreds stay
@@ -103,10 +113,19 @@ export type SacredOptions = {
 }
 
 export type SacredPassedIn = {
-  changeOnly?: boolean
+  changeOnly?: SacredChangeOnly
   debug?: boolean
   events: SacredEvent[]
   observableValue?: Observable
   options?: SacredOptions
   originalValue: any
+}
+
+export type SacredSelectOptions<S> = {
+  isEqual?: (previousValue: S, nextValue: S) => boolean
+}
+
+export type SacredSerialized<T> = {
+  value: T
+  events: SacredEvent[]
 }

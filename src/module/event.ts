@@ -65,27 +65,39 @@ export function sacredEventAdd(input: SacredEventAdd) {
 // Filters.
 function filterChangeOnly(input: SacredEventAdd): boolean {
   const { changeOnly = true, events, value } = input
+
+  if (!changeOnly) return true
+
   const latestEvent = events.length > 0 ? events[events.length - 1] : undefined
+  if (latestEvent === undefined) return true
 
-  if (changeOnly) {
-    if (latestEvent === undefined || latestEvent.value !== value) return true
-    return false
-  }
+  const isSame =
+    typeof changeOnly === 'function'
+      ? changeOnly(latestEvent.value, value)
+      : latestEvent.value === value
 
-  return true
+  return !isSame
+}
+
+// typeof alone can't tell an array or null from a plain object (all three
+// report "object"), so they're called out separately here.
+function sacredTypeLabel(check: any): string {
+  if (check === null) return 'null'
+  if (isArray(check)) return 'array'
+  return typeof check
 }
 
 function filterCheckType(input: SacredEventAdd): boolean {
   const { checkType = true, originalValue, value } = input
 
-  // Filter out by types.
-  if (
-    checkType &&
-    originalValue !== undefined &&
-    typeof originalValue !== typeof value
-  ) {
+  if (!checkType || originalValue === undefined) return true
+
+  const originalType = sacredTypeLabel(originalValue)
+  const valueType = sacredTypeLabel(value)
+
+  if (originalType !== valueType) {
     sacredLogError(
-      `The set value is of type "${typeof value}". Expected the type to be "${typeof originalValue}".`,
+      `The set value is of type "${valueType}". Expected the type to be "${originalType}".`,
     )
 
     return false

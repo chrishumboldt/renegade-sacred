@@ -25,10 +25,14 @@ test('Test objectClone deep clones nested objects and arrays.', () => {
   })
 })
 
-test('Test objectClone drops null and undefined valued keys.', () => {
+test('Test objectClone preserves explicit null values but drops undefined keys.', () => {
   const clone = objectClone({ name: 'Ani', age: null, title: undefined })
 
-  assert.deepStrictEqual(clone, { name: 'Ani' })
+  assert.deepStrictEqual(clone, { name: 'Ani', age: null })
+})
+
+test('Test objectClone returns a bare null source as-is.', () => {
+  assert.strictEqual(objectClone(null), null)
 })
 
 test('Test objectCreateFromKeyValue builds a nested object from a dot path.', () => {
@@ -59,6 +63,20 @@ test('Test objectMerge deep merges nested objects, mutating and returning the so
   assert.deepStrictEqual(merged, expected)
   assert.deepStrictEqual(source, expected)
   assert.strictEqual(merged, source)
+})
+
+test('Test objectMerge writes an explicit null over an existing value.', () => {
+  const source = { name: 'Ani', attributes: { age: 9 } }
+  const merged = objectMerge(source, { attributes: null })
+
+  assert.deepStrictEqual(merged, { name: 'Ani', attributes: null })
+})
+
+test('Test objectMerge replaces a null branch with the merged-in object instead of throwing.', () => {
+  const source = { user: null as any }
+  const merged = objectMerge(source, { user: { name: 'x' } })
+
+  assert.deepStrictEqual(merged, { user: { name: 'x' } })
 })
 
 test('Test objectMerge replaces array items positionally.', () => {
@@ -106,6 +124,14 @@ test('Test objectMergeImmutable does not mutate the source.', () => {
   const source = { name: 'Ani', attributes: { age: 9 } }
   objectMergeImmutable(source, { attributes: { age: 18 } })
 
+  assert.deepStrictEqual(source, { name: 'Ani', attributes: { age: 9 } })
+})
+
+test('Test objectMergeImmutable writes an explicit null over an existing value without mutating the source.', () => {
+  const source = { name: 'Ani', attributes: { age: 9 } }
+  const merged = objectMergeImmutable(source, { attributes: null })
+
+  assert.deepStrictEqual(merged, { name: 'Ani', attributes: null })
   assert.deepStrictEqual(source, { name: 'Ani', attributes: { age: 9 } })
 })
 

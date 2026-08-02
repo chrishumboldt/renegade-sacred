@@ -3,5 +3,5 @@ export function isArray(check: any): boolean {
 }
 
 export function isObject(check: any): boolean {
-  return typeof check === 'object'
+  return typeof check === 'object' && check !== null
 }
