@@ -2,11 +2,11 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { sacred } from './sacred'
 
-const sacredString = sacred({ value: 'Ani' })
+const sacredString = sacred('Ani')
 
-sacredString.upsert({ value: 'Padawan Anakin Skywalker' })
-sacredString.upsert({ value: 'Anakin Skywalker' })
-sacredString.upsert({ value: 'Darth Vader' })
+sacredString.upsert('Padawan Anakin Skywalker')
+sacredString.upsert('Anakin Skywalker')
+sacredString.upsert('Darth Vader')
 
 test('Test a sacred string orignal value.', () => {
   assert.strictEqual(sacredString.getOriginalValue(), 'Ani')
@@ -39,16 +39,16 @@ test('Test a sacred string current value.', () => {
 })
 
 test('Test a sacred string does not upsert if the value is the same and the changeOnly flag is set.', () => {
-  const sacredString2 = sacred({ value: 'Ani', changeOnly: true })
+  const sacredString2 = sacred('Ani', { changeOnly: true })
 
-  sacredString2.upsert({ value: 'Ani' })
-  sacredString2.upsert({ value: 'Ani' })
-  sacredString2.upsert({ value: 'Ani' })
-  sacredString2.upsert({ value: 'Ani' })
-  sacredString2.upsert({ value: 'Ani' })
-  sacredString2.upsert({ value: 'Ani' })
-  sacredString2.upsert({ value: 'Ani' })
-  sacredString2.upsert({ value: 'Darth Vader' })
+  sacredString2.upsert('Ani')
+  sacredString2.upsert('Ani')
+  sacredString2.upsert('Ani')
+  sacredString2.upsert('Ani')
+  sacredString2.upsert('Ani')
+  sacredString2.upsert('Ani')
+  sacredString2.upsert('Ani')
+  sacredString2.upsert('Darth Vader')
 
   assert.strictEqual(sacredString2.getEvents().length, 2)
 })

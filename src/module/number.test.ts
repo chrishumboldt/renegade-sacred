@@ -2,11 +2,11 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { sacred } from './sacred'
 
-const sacredNumber = sacred({ value: 1 })
+const sacredNumber = sacred(1)
 
-sacredNumber.upsert({ value: 2 })
-sacredNumber.upsert({ value: 3 })
-sacredNumber.upsert({ value: 4 })
+sacredNumber.upsert(2)
+sacredNumber.upsert(3)
+sacredNumber.upsert(4)
 
 test('Test the sacred number orignal value.', () => {
   assert.strictEqual(sacredNumber.getOriginalValue(), 1)

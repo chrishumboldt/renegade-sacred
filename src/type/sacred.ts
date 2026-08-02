@@ -13,8 +13,16 @@ export type Sacred<T = any> = {
   // Pops the last `steps` events (default 1) and recomputes the value.
   // Cannot revert past an eventLimit collapse boundary - see sacredRevert.
   revert: (steps?: number) => void
-  unset: (input: SacredEventUnset) => void
-  upsert: (input: SacredEventUpsert<T>) => void
+  unset: (key: number | string, options?: SacredUnsetOptions) => void
+  // Two call signatures, discriminated by whether `key` is present in
+  // options: whole-value upserts (no key) must match T at compile time,
+  // same guarantee as before. Keyed upserts target a nested slice of T,
+  // which isn't practically type-checkable against a string path, so
+  // value stays loose there - same as it was before this was positional.
+  upsert: {
+    (value: T, options?: Omit<SacredUpsertOptions, 'key'>): void
+    (value: any, options: SacredUpsertOptions & { key: number | string }): void
+  }
 }
 
 // true/false gives reference-equality deduping (the default). Pass a
@@ -36,10 +44,7 @@ export type SacredAsyncState<D> = {
   error: unknown | null
 }
 
-export type SacredAsyncOptions<D> = Omit<
-  SacredInput<SacredAsyncState<D>>,
-  'value'
->
+export type SacredAsyncOptions = SacredInput
 
 export type SacredAggregateAuto = {
   events: SacredEvent[]
@@ -97,14 +102,12 @@ export type SacredEventUnset = SacredEventChange & {
   key?: number | string
 }
 
-// Upserting the whole value (no key) must match the sacred's type T.
-// Upserting via a key path targets a nested slice of T, which isn't
-// practically type-checkable against a string path, so it stays loose.
-export type SacredEventUpsert<T = any> =
-  | (SacredEventChange & { key?: undefined; value: T })
-  | (SacredEventChange & { key: number | string; value: any })
+export type SacredEventUpsert = SacredEventChange & {
+  key?: number | string
+  value: any
+}
 
-export type SacredInput<T = any> = {
+export type SacredInput = {
   changeOnly?: SacredChangeOnly
   debug?: boolean
   // Caps how many events accumulate before older ones are collapsed into
@@ -114,10 +117,9 @@ export type SacredInput<T = any> = {
   events?: SacredEvent[]
   sideEffect?: ObservableEffect[]
   triggerOnCreate?: boolean
-  value: T
 }
 
-export type SacredMergeOptions = Omit<SacredInput<any[]>, 'value'>
+export type SacredMergeOptions = SacredInput
 
 // Maps a tuple of sacreds to a tuple of their value types, positionally,
 // e.g. [Sacred<string>, Sacred<number>] -> [string, number].
@@ -145,4 +147,13 @@ export type SacredSelectOptions<S> = {
 export type SacredSerialized<T> = {
   value: T
   events: SacredEvent[]
+}
+
+export type SacredUnsetOptions = {
+  signature?: any
+}
+
+export type SacredUpsertOptions = {
+  key?: number | string
+  signature?: any
 }

@@ -56,24 +56,24 @@ const initialState = {
   postIds: [],
 }
 
-const store = sacred({ value: initialState })
+const store = sacred(initialState)
 
 // --- Phase 1: create posts -------------------------------------------------
 //
 // IMPORTANT (found while building this): growing a nested array field by
 // repeatedly upserting a single-item replacement, e.g.
-//   store.upsert({ key: 'postIds', value: [id] })
+//   store.upsert([id], { key: 'postIds' })
 // does NOT append. Merge is positional for arrays, so every call just
 // overwrites index 0 and prior entries are silently lost. The correct
 // pattern is an indexed key path per item: `postIds[i]`.
 timeIt(`Phase 1: dispatch ${POST_COUNT} "createPost" actions`, () => {
   for (let i = 0; i < POST_COUNT; i++) {
     const id = `post-${i}`
-    store.upsert({
-      key: `entities.posts.${id}`,
-      value: { id, title: `Post ${i}`, likes: 0, authorId: 1 },
-    })
-    store.upsert({ key: `postIds[${i}]`, value: id })
+    store.upsert(
+      { id, title: `Post ${i}`, likes: 0, authorId: 1 },
+      { key: `entities.posts.${id}` },
+    )
+    store.upsert(id, { key: `postIds[${i}]` })
   }
 })
 
@@ -82,10 +82,10 @@ timeIt(`Phase 2: dispatch ${COMMENT_COUNT} "addComment" actions`, () => {
   for (let i = 0; i < COMMENT_COUNT; i++) {
     const postId = `post-${i % POST_COUNT}`
     const commentId = `comment-${i}`
-    store.upsert({
-      key: `entities.comments.${commentId}`,
-      value: { id: commentId, postId, text: `Comment ${i}` },
-    })
+    store.upsert(
+      { id: commentId, postId, text: `Comment ${i}` },
+      { key: `entities.comments.${commentId}` },
+    )
   }
 })
 
@@ -94,14 +94,14 @@ timeIt(`Phase 2: dispatch ${COMMENT_COUNT} "addComment" actions`, () => {
 timeIt(`Phase 3: dispatch ${MISC_ACTION_COUNT} misc like/UI actions`, () => {
   for (let i = 0; i < MISC_ACTION_COUNT; i++) {
     const postId = `post-${i % POST_COUNT}`
-    store.upsert({ key: `entities.posts.${postId}.likes`, value: i })
-    store.upsert({ key: 'ui.sidebarOpen', value: i % 2 === 0 })
+    store.upsert(i, { key: `entities.posts.${postId}.likes` })
+    store.upsert(i % 2 === 0, { key: 'ui.sidebarOpen' })
 
     if (i % 200 === 0) {
-      store.upsert({
-        key: `ui.notifications[${Math.floor(i / 200)}]`,
-        value: { id: i, message: `Notification ${i}` },
-      })
+      store.upsert(
+        { id: i, message: `Notification ${i}` },
+        { key: `ui.notifications[${Math.floor(i / 200)}]` },
+      )
     }
   }
 })
@@ -170,7 +170,7 @@ console.log('\nScaling check: writing into ONE large flat map as it grows')
 console.log('(this stays expensive regardless of eventLimit - see the comment above)\n')
 
 function scalingRun(label, eventLimit) {
-  const s = sacred({ value: { entities: { items: {} } }, eventLimit })
+  const s = sacred({ entities: { items: {} } }, { eventLimit })
   const BATCH = 200
   const BATCHES = 8
   console.log(`  ${label}:`)
@@ -178,7 +178,7 @@ function scalingRun(label, eventLimit) {
     const start = process.hrtime.bigint()
     for (let i = 0; i < BATCH; i++) {
       const n = b * BATCH + i
-      s.upsert({ key: `entities.items.item-${n}`, value: { id: n } })
+      s.upsert({ id: n }, { key: `entities.items.item-${n}` })
     }
     const ms = Number(process.hrtime.bigint() - start) / 1e6
     console.log(
@@ -192,9 +192,9 @@ scalingRun('eventLimit: 1000 (default)', undefined)
 
 // --- sacredMerge stress, combineReducers-style ------------------------------
 console.log('\nsacredMerge: combining 3 slices, 5000 updates to one of them:')
-const authSlice = sacred({ value: initialState.auth })
-const uiSlice = sacred({ value: initialState.ui })
-const userSlice = sacred({ value: initialState.user })
+const authSlice = sacred(initialState.auth)
+const uiSlice = sacred(initialState.ui)
+const userSlice = sacred(initialState.user)
 const combined = sacredMerge([authSlice, uiSlice, userSlice])
 
 let notifications = 0
@@ -204,7 +204,7 @@ combined.observe(() => {
 
 timeIt('  5000 dispatches to uiSlice', () => {
   for (let i = 0; i < 5000; i++) {
-    uiSlice.upsert({ key: 'sidebarOpen', value: i % 2 === 0 })
+    uiSlice.upsert(i % 2 === 0, { key: 'sidebarOpen' })
   }
 })
 check('merge observer fired once per update (+1 initial)', notifications, 5001)

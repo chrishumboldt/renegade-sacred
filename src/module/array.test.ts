@@ -2,13 +2,15 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { sacred } from './sacred'
 
-const sacredArray = sacred<string[]>({
-  value: ['Yoda', 'Obi-Wan Kenobi', 'Anakin Skywalker'],
-})
+const sacredArray = sacred<string[]>([
+  'Yoda',
+  'Obi-Wan Kenobi',
+  'Anakin Skywalker',
+])
 
-sacredArray.upsert({ value: ['Mace Windu'] })
-sacredArray.upsert({ value: ['Qui-Gon Jinn'] })
-sacredArray.upsert({ key: 2, value: 'Darth Vader' })
+sacredArray.upsert(['Mace Windu'])
+sacredArray.upsert(['Qui-Gon Jinn'])
+sacredArray.upsert('Darth Vader', { key: 2 })
 
 test('Test a sacred array orignal value.', () => {
   assert.deepStrictEqual(sacredArray.getOriginalValue(), [

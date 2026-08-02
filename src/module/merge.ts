@@ -7,17 +7,17 @@ export function sacredMerge<T extends readonly Sacred<any>[]>(
 ) {
   // The array starts empty and is populated synchronously below, before
   // anything can observe it, so this cast is safe.
-  const result = sacred<SacredMergeValues<T>>({
-    value: [] as unknown as SacredMergeValues<T>,
-    ...options,
-  })
+  const result = sacred<SacredMergeValues<T>>(
+    [] as unknown as SacredMergeValues<T>,
+    options,
+  )
   let subscriberCount = 0
 
   // Keep the result in sync with every source sacred for the lifetime of
   // the merge.
   const sourceObservers = sacreds.map((sourceSacred, index) =>
     sourceSacred.observe(({ value }) => {
-      result.upsert({ key: index, value })
+      result.upsert(value, { key: index })
     }),
   )
 

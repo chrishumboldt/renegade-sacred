@@ -4,10 +4,10 @@ import { sacred } from './sacred'
 import { sacredHydrate, sacredSerialize } from './persist'
 
 test('Test that sacredSerialize/sacredHydrate round-trips through JSON with the same value.', () => {
-  const original = sacred<any>({ value: { name: 'Ani', attributes: { age: 9 } } })
+  const original = sacred<any>({ name: 'Ani', attributes: { age: 9 } })
 
-  original.upsert({ key: 'name', value: 'Darth Vader' })
-  original.upsert({ key: 'attributes.age', value: 41 })
+  original.upsert('Darth Vader', { key: 'name' })
+  original.upsert(41, { key: 'attributes.age' })
 
   const json = JSON.parse(JSON.stringify(sacredSerialize(original)))
   const hydrated = sacredHydrate(json)
@@ -18,11 +18,11 @@ test('Test that sacredSerialize/sacredHydrate round-trips through JSON with the 
 })
 
 test('Test that a hydrated sacred continues to accept writes identically to the original.', () => {
-  const original = sacred<any>({ value: { count: 0 } })
-  original.upsert({ key: 'count', value: 1 })
+  const original = sacred<any>({ count: 0 })
+  original.upsert(1, { key: 'count' })
 
   const hydrated = sacredHydrate(sacredSerialize(original))
-  hydrated.upsert({ key: 'count', value: 2 })
+  hydrated.upsert(2, { key: 'count' })
 
   assert.deepStrictEqual(hydrated.getValue(), { count: 2 })
   // The original is untouched by writes made after serialization.
@@ -30,23 +30,23 @@ test('Test that a hydrated sacred continues to accept writes identically to the 
 })
 
 test('Test that sacredSerialize defensively copies the event array.', () => {
-  const original = sacred<any>({ value: { count: 0 } })
-  original.upsert({ key: 'count', value: 1 })
+  const original = sacred<any>({ count: 0 })
+  original.upsert(1, { key: 'count' })
 
   const serialized = sacredSerialize(original)
-  original.upsert({ key: 'count', value: 2 })
+  original.upsert(2, { key: 'count' })
 
   assert.strictEqual(serialized.events.length, 1)
 })
 
 test('Test that hydrate forwards options (e.g. eventLimit) and collapse continues correctly after hydration.', () => {
-  const original = sacred<any>({ value: { count: 0 }, eventLimit: 2 })
-  original.upsert({ key: 'count', value: 1 })
-  original.upsert({ key: 'count', value: 2 })
+  const original = sacred<any>({ count: 0 }, { eventLimit: 2 })
+  original.upsert(1, { key: 'count' })
+  original.upsert(2, { key: 'count' })
 
   const hydrated = sacredHydrate(sacredSerialize(original), { eventLimit: 2 })
-  hydrated.upsert({ key: 'count', value: 3 })
-  hydrated.upsert({ key: 'count', value: 4 })
+  hydrated.upsert(3, { key: 'count' })
+  hydrated.upsert(4, { key: 'count' })
 
   assert.deepStrictEqual(hydrated.getValue(), { count: 4 })
   assert.ok(hydrated.getEvents().length <= 2)

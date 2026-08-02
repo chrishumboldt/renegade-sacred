@@ -3,13 +3,11 @@ import { test } from 'node:test'
 import { sacred } from './sacred'
 
 test('Test that you can collapse the events.', () => {
-  const sacredThing = sacred({
-    value: { name: 'Ani' },
-  })
+  const sacredThing = sacred<any>({ name: 'Ani' })
 
-  sacredThing.upsert({ value: { name: 'Padawan Skywalker', age: 16 } })
-  sacredThing.upsert({ value: { name: 'Jedi Knight Skywalker', age: 25 } })
-  sacredThing.upsert({ value: { name: 'Darth Vader' } })
+  sacredThing.upsert({ name: 'Padawan Skywalker', age: 16 })
+  sacredThing.upsert({ name: 'Jedi Knight Skywalker', age: 25 })
+  sacredThing.upsert({ name: 'Darth Vader' })
 
   assert.strictEqual(sacredThing.getEvents().length, 3)
 

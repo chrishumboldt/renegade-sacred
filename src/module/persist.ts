@@ -18,7 +18,7 @@ export function sacredSerialize<T>(
 
 export function sacredHydrate<T>(
   data: SacredSerialized<T>,
-  options: Omit<SacredInput<T>, 'value' | 'events'> = {},
+  options: Omit<SacredInput, 'events'> = {},
 ): Sacred<T> {
-  return sacred<T>({ ...options, value: data.value, events: data.events })
+  return sacred<T>(data.value, { ...options, events: data.events })
 }

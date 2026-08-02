@@ -124,16 +124,16 @@ test('Test that value auto aggregation works while adding events over time.', ()
 })
 
 test('Test that sacred() defaults eventLimit to 1000.', () => {
-  const sacredThing = sacred({ value: { count: 0 } })
+  const sacredThing = sacred({ count: 0 })
 
   assert.strictEqual(sacredThing.getOptions().eventLimit, 1000)
 })
 
 test('Test that the default eventLimit keeps the event history bounded.', () => {
-  const sacredThing = sacred({ value: { count: 0 } })
+  const sacredThing = sacred({ count: 0 })
 
   for (let i = 0; i < 1500; i++) {
-    sacredThing.upsert({ key: 'count', value: i })
+    sacredThing.upsert(i, { key: 'count' })
   }
 
   assert.ok(sacredThing.getEvents().length <= 1000)
@@ -141,10 +141,10 @@ test('Test that the default eventLimit keeps the event history bounded.', () => 
 })
 
 test('Test that eventLimit: 0 opts out of the default and allows unlimited growth.', () => {
-  const sacredThing = sacred({ value: { count: 0 }, eventLimit: 0 })
+  const sacredThing = sacred({ count: 0 }, { eventLimit: 0 })
 
   for (let i = 0; i < 1500; i++) {
-    sacredThing.upsert({ key: 'count', value: i })
+    sacredThing.upsert(i, { key: 'count' })
   }
 
   assert.strictEqual(sacredThing.getEvents().length, 1500)

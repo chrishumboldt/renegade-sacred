@@ -9,10 +9,10 @@ import type {
   ObservableEffect,
   Sacred,
   SacredEvent,
-  SacredEventUnset,
-  SacredEventUpsert,
   SacredInput,
   SacredOptions,
+  SacredUnsetOptions,
+  SacredUpsertOptions,
 } from '../type'
 
 // Create a sacred thing. Once this is done it can no longer be changed but
@@ -23,22 +23,24 @@ import type {
 //
 // The inspiration of this is immutable trees that instead of copying and
 // returning a new value, return the current state of change. We can
-// apply this change history without mutation by overlaying the principle 
+// apply this change history without mutation by overlaying the principle
 // of events.
 //
 // NOTE: Types matter in sacred values. You cannot change the type!!!! It
 // will error.
-export function sacred<T = unknown>({
-  changeOnly = false,
-  debug,
-  eventLimit = 1000,
-  events: inputEvents = [],
-  sideEffect,
-  triggerOnCreate = false,
-  value,
-}: SacredInput<T>): Sacred<T> {
+export function sacred<T = unknown>(
+  value: T,
+  {
+    changeOnly = false,
+    debug,
+    eventLimit = 1000,
+    events: inputEvents = [],
+    sideEffect,
+    triggerOnCreate = false,
+  }: SacredInput = {},
+): Sacred<T> {
   const events: SacredEvent[] = inputEvents
-  const options: SacredOptions = { eventLimit }
+  const runtimeOptions: SacredOptions = { eventLimit }
   const originalValue: any = value // This never changes!
 
   // Set observable value.
@@ -64,7 +66,7 @@ export function sacred<T = unknown>({
       return observableValue.getObserverCount()
     },
     getOptions(): SacredOptions {
-      return options
+      return runtimeOptions
     },
     getOriginalValue() {
       return originalValue
@@ -84,24 +86,28 @@ export function sacred<T = unknown>({
     revert(steps = 1) {
       return sacredRevert({ events, observableValue, originalValue }, steps)
     },
-    unset(input: SacredEventUnset) {
+    unset(key: number | string, unsetOptions: SacredUnsetOptions = {}) {
       return sacredUnset({
         debug,
         events,
         observableValue,
         originalValue,
-        options,
-      })(input)
+        options: runtimeOptions,
+      })({ key, signature: unsetOptions.signature ?? false })
     },
-    upsert(input: SacredEventUpsert<T>) {
+    upsert(value: any, upsertOptions: SacredUpsertOptions = {}) {
       return sacredUpsert({
         changeOnly,
         debug,
         events,
         observableValue,
         originalValue,
-        options,
-      })(input)
+        options: runtimeOptions,
+      })({
+        key: upsertOptions.key,
+        signature: upsertOptions.signature ?? false,
+        value,
+      })
     },
   }
 }

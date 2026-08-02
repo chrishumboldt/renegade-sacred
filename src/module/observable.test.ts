@@ -113,34 +113,33 @@ test('Test that a throwing sideEffect at triggerOnCreate does not stop the rest.
 })
 
 test('Test that sacred() observe fires when the sacred is upserted.', () => {
-  const sacredThing = sacred({ value: 'Ani' })
+  const sacredThing = sacred('Ani')
   const seen: string[] = []
 
   sacredThing.observe(({ value }: any) => seen.push(value))
-  sacredThing.upsert({ value: 'Darth Vader' })
+  sacredThing.upsert('Darth Vader')
 
   assert.deepStrictEqual(seen, ['Ani', 'Darth Vader'])
 })
 
 test('Test that sacred() sideEffect option runs on every change.', () => {
   const seen: string[] = []
-  const sacredThing = sacred({
-    value: 'Ani',
+  const sacredThing = sacred('Ani', {
     sideEffect: [({ value }: any) => seen.push(value)],
   })
 
-  sacredThing.upsert({ value: 'Darth Vader' })
+  sacredThing.upsert('Darth Vader')
 
   assert.deepStrictEqual(seen, ['Darth Vader'])
 })
 
 test('Test that unobserving a sacred stops future notifications.', () => {
-  const sacredThing = sacred({ value: 'Ani' })
+  const sacredThing = sacred('Ani')
   const seen: string[] = []
 
   const observer = sacredThing.observe(({ value }: any) => seen.push(value))
   observer.unobserve()
-  sacredThing.upsert({ value: 'Darth Vader' })
+  sacredThing.upsert('Darth Vader')
 
   assert.deepStrictEqual(seen, ['Ani'])
 })

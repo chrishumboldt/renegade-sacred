@@ -4,7 +4,7 @@ Mutable state causes bugs that are hard to trace as values can change out from u
 
 Sacreds take the approach event-sourced systems use which is instead of copying the value, store the change. A Sacred keeps its original value forever and untouched. Every `upsert`/`unset` you make becomes an event in an append-only ledger instead of a mutation and `getValue()` gives you a value derived by folding that history over the original, not a separate absolute copy. Because reads are derived rather than reassigned, the same Sacred reference can be passed around indefinitely and will always reflect the latest state.
 
-This model also gives you undo and persistence essentially for free. `revert()` steps back through the event history and because that history is plain, JSON-serializable data, `sacredSerialize`/`sacredHydrate` can rebuild a Sacred exactly as it was. Types are also enforced as `sacred()` infers its type from the value you give it, so TypeScript catches a type-mismatched whole-value upsert (`sacredThing.upsert({ value: ... })`) at compile time, and the same mismatch is rejected at runtime with a console warning instead of silently changing the Sacred's type. Upserting via a key path (`sacredThing.upsert({ key: 'attributes.age', value: ... })`) targets a nested slice rather than the whole value, so it isn't practically type-checkable against a string path and stays loosely typed.
+This model also gives you undo and persistence essentially for free. `revert()` steps back through the event history and because that history is plain, JSON-serializable data, `sacredSerialize`/`sacredHydrate` can rebuild a Sacred exactly as it was. Types are also enforced as `sacred()` infers its type from the value you give it, so TypeScript catches a type-mismatched whole-value upsert (`sacredThing.upsert(...)`) at compile time, and the same mismatch is rejected at runtime with a console warning instead of silently changing the Sacred's type. Upserting via a key path (`sacredThing.upsert(..., { key: 'attributes.age' })`) targets a nested slice rather than the whole value, so it isn't practically type-checkable against a string path and stays loosely typed.
 
 - [Using a Sacred](#using-a-sacred)
 - [Sacred Change Only](#sacred-change-only)
@@ -30,13 +30,13 @@ Creating a sacred is very simple and can accept the types `boolean`, `number`, `
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: 'Anakin Skywalker' })
+const sacredThing = sacred('Anakin Skywalker')
 ```
 
 Now if we want to change the value (mutate without actually mutating), we simply upsert the sacred.
 
 ```javascript
-sacredThing.upsert({ value: 'Darth Vader' })
+sacredThing.upsert('Darth Vader')
 
 sacredThing.getValue() // Darth Vader
 ```
@@ -48,13 +48,13 @@ You can limit upsert events to only when the event is different to its previous 
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: 'Anakin Skywalker', changeOnly: true })
+const sacredThing = sacred('Anakin Skywalker', { changeOnly: true })
 
-sacredThing.upsert({ value: 'Anakin Skywalker' })
-sacredThing.upsert({ value: 'Anakin Skywalker' })
-sacredThing.upsert({ value: 'Anakin Skywalker' })
-sacredThing.upsert({ value: 'Anakin Skywalker' })
-sacredThing.upsert({ value: 'Darth Vader' })
+sacredThing.upsert('Anakin Skywalker')
+sacredThing.upsert('Anakin Skywalker')
+sacredThing.upsert('Anakin Skywalker')
+sacredThing.upsert('Anakin Skywalker')
+sacredThing.upsert('Darth Vader')
 
 sacredThing.getEvents().length // Only going to be 2
 sacredThing.getValue() // Darth Vader
@@ -63,21 +63,23 @@ sacredThing.getValue() // Darth Vader
 By default `changeOnly` compares by reference equality, which works well for primitives but rarely dedupes objects or arrays (a new literal is almost never `===` the previous one, even with identical contents). Pass a comparator function instead if you need real dedupe for those.
 
 ```javascript
-const sacredThing = sacred({
-  value: { id: 1 },
-  changeOnly: (previousValue, nextValue) => previousValue.id === nextValue.id,
-})
+const sacredThing = sacred(
+  { id: 1 },
+  {
+    changeOnly: (previousValue, nextValue) => previousValue.id === nextValue.id,
+  },
+)
 
-sacredThing.upsert({ value: { id: 1 } }) // applied (first write always applies)
-sacredThing.upsert({ value: { id: 1 } }) // ignored, same id as the previous event
-sacredThing.upsert({ value: { id: 2 } }) // applied
+sacredThing.upsert({ id: 1 }) // applied (first write always applies)
+sacredThing.upsert({ id: 1 }) // ignored, same id as the previous event
+sacredThing.upsert({ id: 2 }) // applied
 ```
 
 #### Sacred Functions
 
 | Function                                          | Description                                                             |
 | ------------------------------------------------- | ----------------------------------------------------------------------- |
-| `sacred(options)`                                 | Create a sacred thing.                                                  |
+| `sacred(value, options)`                          | Create a sacred thing.                                                  |
 | `[sacredRef].collapseEvents()`                    | Collapse all the events in the event history into one aggregated event. |
 | `[sacredRef].getEvents()`                         | Get all the events for the sacred thing.                                |
 | `[sacredRef].getObserverCount()`                  | Get the amount of observers currently reacting to the sacred thing.     |
@@ -88,18 +90,18 @@ sacredThing.upsert({ value: { id: 2 } }) // applied
 | `[sacredRef].logLedger()`                         | Log out the sacred thing ledger to the console.                         |
 | `[sacredRef].observe(function, triggerOnObserve)` | Observe a sacred thing and react to the events.                         |
 | `[sacredRef].revert(steps)`                       | Undo the last `steps` events (default `1`).                             |
-| `[sacredRef].unset(options)`                      | Unset something on a sacred thing.                                      |
-| `[sacredRef].upsert(options)`                     | Upsert a sacred thing with a new event.                                 |
+| `[sacredRef].unset(key, options)`                 | Unset something on a sacred thing.                                      |
+| `[sacredRef].upsert(value, options)`              | Upsert a sacred thing with a new event.                                 |
 
 #### Sacred Arrays
 
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: ['Ani', 'Padawan Skywalker'] })
+const sacredThing = sacred(['Ani', 'Padawan Skywalker'])
 
 // Upsert the array with a new value.
-sacredThing.upsert({ value: ['Jedi Knight Skywalker'] })
+sacredThing.upsert(['Jedi Knight Skywalker'])
 
 sacredThing.getValue() // ['Ani', 'Padawan Skywalker', 'Jedi Knight Skywalker']
 ```
@@ -107,7 +109,7 @@ sacredThing.getValue() // ['Ani', 'Padawan Skywalker', 'Jedi Knight Skywalker']
 When a new array is upserted the arrays go through an aggregation and get merged. If you want instead to replace an array at a key you can do so but note that you require just the value and not an array.
 
 ```javascript
-sacredThing.upsert({ key: 0, value: 'Young Ani' })
+sacredThing.upsert('Young Ani', { key: 0 })
 
 sacredThing.getValue() // ['Young Ani', 'Padawan Skywalker', 'Jedi Knight Skywalker']
 ```
@@ -144,7 +146,11 @@ await jedi.run('Anakin').catch(() => {})
 
 If two calls to `run()` overlap, only the most recently started one is allowed to write its result. This matters when a slow call started first is still in flight when a faster call started after it resolves. Without a guard, the slow call resolving later would overwrite the fresher result. The call that started later always wins, regardless of resolution order, and each call's own returned promise still settles with its own result either way, whether or not it ends up writing to the sacred.
 
-`sacredAsync` takes the same options as `sacred` (minus `value`, since that's always the status object above) as a second argument.
+`sacredAsync` takes the same options object as `sacred` does (`eventLimit`, `changeOnly`, `debug`, etc.), as its own second argument, since the status object it tracks is itself just a sacred internally.
+
+```javascript
+const jedi = sacredAsync(fetchJedi, { eventLimit: 500 })
+```
 
 #### Sacred Auto Aggregation
 
@@ -155,17 +161,16 @@ By default the event limit is `1000`, so this happens automatically without you 
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({
-  value: 'Ani',
+const sacredThing = sacred('Ani', {
   eventLimit: 3,
 })
 
-sacredThing.upsert({ value: 'Padawan Skywalker' })
-sacredThing.upsert({ value: 'Jedi Knight Skywalker' })
-sacredThing.upsert({ value: 'Sith Lord Darth Vader' })
-sacredThing.upsert({ value: 'Luke Skywalkers Dad Again' })
-sacredThing.upsert({ value: 'Dead Guy' })
-sacredThing.upsert({ value: 'Force Ghost' })
+sacredThing.upsert('Padawan Skywalker')
+sacredThing.upsert('Jedi Knight Skywalker')
+sacredThing.upsert('Sith Lord Darth Vader')
+sacredThing.upsert('Luke Skywalkers Dad Again')
+sacredThing.upsert('Dead Guy')
+sacredThing.upsert('Force Ghost')
 
 sacredThing.logLedger()
 ```
@@ -198,11 +203,11 @@ The ledger is an aethereal concept within a sacred of a list of changes, the cur
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: 'Ani' })
+const sacredThing = sacred('Ani')
 
-sacredThing.upsert({ value: 'Padawan Skywalker' })
-sacredThing.upsert({ value: 'Jedi Knight Skywalker' })
-sacredThing.upsert({ value: 'Sith Lord Darth Vader' })
+sacredThing.upsert('Padawan Skywalker')
+sacredThing.upsert('Jedi Knight Skywalker')
+sacredThing.upsert('Sith Lord Darth Vader')
 
 sacredThing.logLedger()
 ```
@@ -233,8 +238,8 @@ Sometimes you have several independent sacreds and want a single place to react 
 ```javascript
 import { sacred, sacredMerge } from '@renegaderocks/sacred'
 
-const sacredName = sacred({ value: 'Ani' })
-const sacredAge = sacred({ value: 9 })
+const sacredName = sacred('Ani')
+const sacredAge = sacred(9)
 
 const merged = sacredMerge([sacredName, sacredAge])
 
@@ -243,7 +248,7 @@ merged.observe(value => {
 })
 // Value: [ 'Ani', 9 ]
 
-sacredName.upsert({ value: 'Darth Vader' })
+sacredName.upsert('Darth Vader')
 // Value: [ 'Darth Vader', 9 ]
 ```
 
@@ -259,12 +264,12 @@ const subscriberTwo$ = merged.observe(value => console.log('Two:', value))
 
 subscriberOne$.unobserve()
 
-sacredName.upsert({ value: 'Darth Vader' })
+sacredName.upsert('Darth Vader')
 // Two: [ 'Darth Vader', 9 ]
 // (subscriberOne$ hears nothing, it already unobserved)
 ```
 
-`sacredMerge` takes the same options as `sacred` (minus `value`, since that's always the merged array) as a second argument, which are applied to the merge's internally derived sacred. This is most useful for `eventLimit`, since a merge that reacts to frequently-changing sacreds accumulates events just like any other sacred.
+`sacredMerge` takes the same options as `sacred`'s second argument (minus `value`, since that's always the merged array) as its own second argument, which are applied to the merge's internally derived sacred. This is most useful for `eventLimit`, since a merge that reacts to frequently-changing sacreds accumulates events just like any other sacred.
 
 ```javascript
 const merged = sacredMerge([sacredName, sacredAge], { eventLimit: 500 })
@@ -278,13 +283,11 @@ Much like arrays sacred objects can be upserted in a variety of ways.
 import { sacred } from '@renegaderocks/sacred'
 
 const sacredThing = sacred({
-  value: {
-    name: 'Ani',
-    attributes: {
-      affiliation: 'citizen',
-      age: 9,
-      lightsaber: false,
-    },
+  name: 'Ani',
+  attributes: {
+    affiliation: 'citizen',
+    age: 9,
+    lightsaber: false,
   },
 })
 ```
@@ -292,7 +295,7 @@ const sacredThing = sacred({
 With the above sacred we can upsert either with an object or a key. In both cases the objects are merged over each other when being aggregated.
 
 ```javascript
-sacredThing.upsert({ value: { name: 'Padawan Skywalker' } })
+sacredThing.upsert({ name: 'Padawan Skywalker' })
 
 sacredThing.getValue()
 ```
@@ -310,11 +313,9 @@ sacredThing.getValue()
 
 ```javascript
 sacredThing.upsert({
-  value: {
-    attributes: {
-      affiliation: 'Jedi',
-      age: 18,
-    },
+  attributes: {
+    affiliation: 'Jedi',
+    age: 18,
   },
 })
 
@@ -335,7 +336,7 @@ sacredThing.getValue()
 Next lets update by using a key.
 
 ```javascript
-sacredThing.upsert({ key: 'attributes.lightsaber', value: true })
+sacredThing.upsert(true, { key: 'attributes.lightsaber' })
 
 sacredThing.getValue()
 ```
@@ -357,16 +358,14 @@ You can also update object arrays with a key. For example.
 import { sacred } from '@renegaderocks/sacred'
 
 const sacredThing = sacred({
-  value: {
-    type: 'Jedi',
-    jedi: [
-      { name: 'Obi-Wan Kenobi', lightsaberColour: 'blue' },
-      { name: 'Yoda', lightsaberColour: 'green' },
-    ],
-  },
+  type: 'Jedi',
+  jedi: [
+    { name: 'Obi-Wan Kenobi', lightsaberColour: 'blue' },
+    { name: 'Yoda', lightsaberColour: 'green' },
+  ],
 })
 
-sacredThing.upsert({ key: 'jedi[0].name', value: 'Qui-Gon Jinn' })
+sacredThing.upsert('Qui-Gon Jinn', { key: 'jedi[0].name' })
 
 sacredThing.getValue()
 ```
@@ -382,7 +381,7 @@ sacredThing.getValue()
 ```
 
 ```javascript
-sacredThing.upsert({ key: 'jedi[2].name', value: 'Mace Windu' })
+sacredThing.upsert('Mace Windu', { key: 'jedi[2].name' })
 
 sacredThing.getValue()
 ```
@@ -406,7 +405,7 @@ It is possible to observe a sacred thing and react to its change. The observer p
 import { sacred } from '@renegaderocks/sacred'
 import type { SacredEffect } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: 'Ani' })
+const sacredThing = sacred('Ani')
 
 // You can then observe the sacred.
 const sacredObserver$ = sacredThing.observe((event: SacredEffect) => {
@@ -416,10 +415,10 @@ const sacredObserver$ = sacredThing.observe((event: SacredEffect) => {
 })
 // Value: Ani
 
-sacredThing.upsert({ value: 'Padawan Anakin Skywalker' })
+sacredThing.upsert('Padawan Anakin Skywalker')
 // Value: Padawan Anakin Skywalker
 
-sacredThing.upsert({ value: 'Darth Vader' })
+sacredThing.upsert('Darth Vader')
 // Value: Darth Vader
 ```
 
@@ -449,13 +448,13 @@ If you don't want your function to run immediately on observation just set the `
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: 'Ani' })
+const sacredThing = sacred('Ani')
 
 const sacredObserver$ = sacredThing.observe(() => {
   console.log('Event happened!')
 }, false)
 
-sacredThing.upsert({ value: 'Padawan Anakin Skywalker' })
+sacredThing.upsert('Padawan Anakin Skywalker')
 // Event happened!
 ```
 
@@ -466,8 +465,8 @@ Since a sacred is just an original value plus an event history, it's already JSO
 ```javascript
 import { sacred, sacredHydrate, sacredSerialize } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: { name: 'Ani' } })
-sacredThing.upsert({ key: 'name', value: 'Darth Vader' })
+const sacredThing = sacred({ name: 'Ani' })
+sacredThing.upsert('Darth Vader', { key: 'name' })
 
 // Save it anywhere JSON.stringify can go, such as localStorage, a file, or a DB row.
 const saved = JSON.stringify(sacredSerialize(sacredThing))
@@ -487,10 +486,10 @@ Because a sacred's value is derived from its event history, undoing a change is 
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: { age: 9 } })
+const sacredThing = sacred({ age: 9 })
 
-sacredThing.upsert({ key: 'age', value: 10 })
-sacredThing.upsert({ key: 'age', value: 11 })
+sacredThing.upsert(10, { key: 'age' })
+sacredThing.upsert(11, { key: 'age' })
 
 sacredThing.revert() // undoes age: 11
 sacredThing.getValue() // { age: 10 }
@@ -508,9 +507,7 @@ sacredThing.getValue() // { age: 9 }
 ```javascript
 import { sacred, sacredSelect } from '@renegaderocks/sacred'
 
-const appState = sacred({
-  value: { ui: { sidebarOpen: false }, auth: { token: 'a' } },
-})
+const appState = sacred({ ui: { sidebarOpen: false }, auth: { token: 'a' } })
 
 const uiState = sacredSelect(appState, state => state.ui)
 
@@ -519,10 +516,10 @@ uiState.observe(ui => {
 })
 // UI: { sidebarOpen: false }
 
-appState.upsert({ key: 'auth.token', value: 'b' })
+appState.upsert('b', { key: 'auth.token' })
 // (nothing logged, since auth isn't part of the selection)
 
-appState.upsert({ key: 'ui.sidebarOpen', value: true })
+appState.upsert(true, { key: 'ui.sidebarOpen' })
 // UI: { sidebarOpen: true }
 ```
 
@@ -557,13 +554,12 @@ const logOutEverything = ({ events, originalValue, value }: SacredEffect) => {
 }
 
 // Create the sacred thing with a side effect.
-const sacredThing = sacred({
-  value: 'Ani',
+const sacredThing = sacred('Ani', {
   sideEffect: [logOutEverything],
 })
 
 // Added an event to the thing.
-sacredThing.upsert({ value: 'Padawan Anakin Skywalker' })
+sacredThing.upsert('Padawan Anakin Skywalker')
 /*
 Trigger Event: {
   metadata: { eventTimestamp: 1668756156868 },
@@ -582,7 +578,7 @@ Value: Padawan Anakin Skywalker
 */
 
 // Added another event to the thing.
-sacredThing.upsert({ value: 'Darth Vader' })
+sacredThing.upsert('Darth Vader')
 /*
 Trigger Event: {
   metadata: { eventTimestamp: 1668756156872 },
@@ -613,15 +609,13 @@ Any event added to the ledger can be "signed" in order to give the consumer of t
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({ value: 'Anakin Skywalker' })
+const sacredThing = sacred('Anakin Skywalker')
 
 // Upsert with a signature.
-sacredThing.upsert({
-  value: 'Jedi Knight Skywalker',
+sacredThing.upsert('Jedi Knight Skywalker', {
   signature: 'someFunctionName()',
 })
-sacredThing.upsert({
-  value: 'Darth Vader',
+sacredThing.upsert('Darth Vader', {
   signature: 'someOtherFunctionName()',
 })
 
@@ -654,20 +648,18 @@ You can unset values inside a sacred thing be it a property or an entire array i
 import { sacred } from '@renegaderocks/sacred'
 
 const sacredThing = sacred({
-  value: {
-    name: 'Ani',
-    attributes: {
-      age: 9,
-      lightsaber: false,
-    },
+  name: 'Ani',
+  attributes: {
+    age: 9,
+    lightsaber: false,
   },
 })
 
 // Lets add a property to create an event log.
-sacredThing.upsert({ key: 'attributes.affiliation', value: 'citizen' })
+sacredThing.upsert('citizen', { key: 'attributes.affiliation' })
 
 // Now lets unset a property.
-sacredThing.unset({ key: 'attributes.age' })
+sacredThing.unset('attributes.age')
 
 sacredThing.logLedger()
 ```
@@ -698,16 +690,14 @@ You can also unset an array.
 ```javascript
 import { sacred } from '@renegaderocks/sacred'
 
-const sacredThing = sacred({
-  value: [
-    { name: 'Yoda', lightsaberColour: 'green' },
-    { name: 'Obi-Wan Kenobi', lightsaberColour: 'blue' },
-    { name: 'Qui-Gon Jin', lightsaberColour: 'green' },
-  ],
-})
+const sacredThing = sacred([
+  { name: 'Yoda', lightsaberColour: 'green' },
+  { name: 'Obi-Wan Kenobi', lightsaberColour: 'blue' },
+  { name: 'Qui-Gon Jin', lightsaberColour: 'green' },
+])
 
-sacredThing.unset({ key: '[0].name' }) // Remove a property from an array item.
-sacredThing.unset({ key: '[1]' }) // Remove an entire array element. This runs a splice.
+sacredThing.unset('[0].name') // Remove a property from an array item.
+sacredThing.unset('[1]') // Remove an entire array element. This runs a splice.
 
 sacredThing.logLedger()
 ```

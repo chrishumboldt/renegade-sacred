@@ -2,11 +2,11 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { sacred } from './sacred'
 
-const sacredBoolean = sacred({ value: true })
+const sacredBoolean = sacred(true)
 
-sacredBoolean.upsert({ value: false })
-sacredBoolean.upsert({ value: true })
-sacredBoolean.upsert({ value: false })
+sacredBoolean.upsert(false)
+sacredBoolean.upsert(true)
+sacredBoolean.upsert(false)
 
 test('Test a sacred boolean orignal value.', () => {
   assert.strictEqual(sacredBoolean.getOriginalValue(), true)

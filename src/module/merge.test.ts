@@ -4,8 +4,8 @@ import { sacredMerge } from './merge'
 import { sacred } from './sacred'
 
 test('Test that a merge aggregates the initial values of each sacred.', () => {
-  const sacredOne = sacred({ value: 'Ani' })
-  const sacredTwo = sacred({ value: 9 })
+  const sacredOne = sacred('Ani')
+  const sacredTwo = sacred(9)
   const merged = sacredMerge([sacredOne, sacredTwo])
   const seen: unknown[] = []
 
@@ -17,8 +17,8 @@ test('Test that a merge aggregates the initial values of each sacred.', () => {
 })
 
 test('Test that a merge reacts when one of the sacreds changes.', () => {
-  const sacredOne = sacred({ value: 'Ani' })
-  const sacredTwo = sacred({ value: 9 })
+  const sacredOne = sacred('Ani')
+  const sacredTwo = sacred(9)
   const merged = sacredMerge([sacredOne, sacredTwo])
   const seen: unknown[] = []
 
@@ -26,13 +26,13 @@ test('Test that a merge reacts when one of the sacreds changes.', () => {
     seen.push(value)
   })
 
-  sacredOne.upsert({ value: 'Darth Vader' })
+  sacredOne.upsert('Darth Vader')
 
   assert.deepStrictEqual(seen[seen.length - 1], ['Darth Vader', 9])
 })
 
 test('Test that triggerOnObserve false does not immediately call the effect.', () => {
-  const sacredOne = sacred({ value: 'Ani' })
+  const sacredOne = sacred('Ani')
   const merged = sacredMerge([sacredOne])
   let calls = 0
 
@@ -42,14 +42,14 @@ test('Test that triggerOnObserve false does not immediately call the effect.', (
 
   assert.strictEqual(calls, 0)
 
-  sacredOne.upsert({ value: 'Darth Vader' })
+  sacredOne.upsert('Darth Vader')
 
   assert.strictEqual(calls, 1)
 })
 
 test('Test that unobserving a merge releases the underlying observers.', () => {
-  const sacredOne = sacred({ value: 'Ani' })
-  const sacredTwo = sacred({ value: 9 })
+  const sacredOne = sacred('Ani')
+  const sacredTwo = sacred(9)
   const merged = sacredMerge([sacredOne, sacredTwo])
 
   assert.strictEqual(sacredOne.getObserverCount(), 1)
@@ -63,7 +63,7 @@ test('Test that unobserving a merge releases the underlying observers.', () => {
 })
 
 test('Test that a merge supports multiple independent subscribers.', () => {
-  const sacredOne = sacred({ value: 1 })
+  const sacredOne = sacred(1)
   const merged = sacredMerge([sacredOne])
   const seenByOne: unknown[] = []
   const seenByTwo: unknown[] = []
@@ -71,14 +71,14 @@ test('Test that a merge supports multiple independent subscribers.', () => {
   merged.observe(value => seenByOne.push(value))
   merged.observe(value => seenByTwo.push(value))
 
-  sacredOne.upsert({ value: 2 })
+  sacredOne.upsert(2)
 
   assert.deepStrictEqual(seenByOne, [[1], [2]])
   assert.deepStrictEqual(seenByTwo, [[1], [2]])
 })
 
 test('Test that unobserving one subscriber does not affect another.', () => {
-  const sacredOne = sacred({ value: 1 })
+  const sacredOne = sacred(1)
   const merged = sacredMerge([sacredOne])
   const seenByOne: unknown[] = []
   const seenByTwo: unknown[] = []
@@ -87,14 +87,14 @@ test('Test that unobserving one subscriber does not affect another.', () => {
   merged.observe(value => seenByTwo.push(value))
 
   subscriberOne.unobserve()
-  sacredOne.upsert({ value: 2 })
+  sacredOne.upsert(2)
 
   assert.deepStrictEqual(seenByOne, [[1]])
   assert.deepStrictEqual(seenByTwo, [[1], [2]])
 })
 
 test('Test that sacredMerge forwards options to the internal result sacred.', () => {
-  const sacredOne = sacred({ value: 'Ani' })
+  const sacredOne = sacred('Ani')
   const originalDebug = console.debug
   let debugCalls = 0
 

@@ -7,12 +7,12 @@ import type { SacredAsyncOptions, SacredAsyncState } from '../type'
 // doesn't touch the core, it just reacts and writes.
 export function sacredAsync<Args extends any[], D>(
   run: (...args: Args) => Promise<D>,
-  options: SacredAsyncOptions<D> = {},
+  options: SacredAsyncOptions = {},
 ) {
-  const state = sacred<SacredAsyncState<D>>({
-    ...options,
-    value: { status: 'idle', data: null, error: null },
-  })
+  const state = sacred<SacredAsyncState<D>>(
+    { status: 'idle', data: null, error: null },
+    options,
+  )
 
   // Guards against a stale call's resolution overwriting a newer one's
   // (e.g. two overlapping calls where the first-started settles last).
@@ -33,18 +33,18 @@ export function sacredAsync<Args extends any[], D>(
     run(...args: Args): Promise<D> {
       const thisGeneration = ++generation
 
-      state.upsert({ value: { status: 'pending', data: null, error: null } })
+      state.upsert({ status: 'pending', data: null, error: null })
 
       return run(...args).then(
         data => {
           if (thisGeneration === generation) {
-            state.upsert({ value: { status: 'fulfilled', data, error: null } })
+            state.upsert({ status: 'fulfilled', data, error: null })
           }
           return data
         },
         error => {
           if (thisGeneration === generation) {
-            state.upsert({ value: { status: 'rejected', data: null, error } })
+            state.upsert({ status: 'rejected', data: null, error })
           }
           throw error
         },

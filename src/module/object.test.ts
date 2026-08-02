@@ -35,16 +35,14 @@ const baseObjectThree = [
     lightsaberColour: 'green',
   },
 ]
-const sacredObject = sacred<any>({
-  value: baseObject,
-})
-const sacredObjectTwo = sacred<any>({ value: baseObjectTwo })
+const sacredObject = sacred<any>(baseObject)
+const sacredObjectTwo = sacred<any>(baseObjectTwo)
 
 // Add events to the value.
-sacredObject.upsert({ key: 'lightsaber.colour', value: 'red' })
-sacredObject.upsert({ key: 'name', value: 'Darth Vader' })
-sacredObject.upsert({ key: 'lightsaber.hilt', value: 'black' })
-sacredObject.upsert({ key: 'affiliation', value: 'Sith' })
+sacredObject.upsert('red', { key: 'lightsaber.colour' })
+sacredObject.upsert('Darth Vader', { key: 'name' })
+sacredObject.upsert('black', { key: 'lightsaber.hilt' })
+sacredObject.upsert('Sith', { key: 'affiliation' })
 
 test('Test the sacred object original value.', () => {
   assert.strictEqual(sacredObject.getOriginalValue(), baseObject)
@@ -70,11 +68,9 @@ test('Test the sacred object has been upserted.', () => {
 
 test('Test the sacred object has been upserted with an object merge.', () => {
   sacredObject.upsert({
-    value: {
-      affiliation: 'Sith',
-      lightsaber: {
-        hilt: 'black',
-      },
+    affiliation: 'Sith',
+    lightsaber: {
+      hilt: 'black',
     },
   })
 
@@ -92,7 +88,7 @@ test('Test the sacred object has been upserted with an object merge.', () => {
 })
 
 test('Test the sacred object name[0] has been changed.', () => {
-  sacredObject.upsert({ key: 'other.names[0]', value: 'Young Ani' })
+  sacredObject.upsert('Young Ani', { key: 'other.names[0]' })
   assert.strictEqual(sacredObject.getValue().other.names[0], 'Young Ani')
 })
 
@@ -101,10 +97,7 @@ test('Test the sacred object two original value.', () => {
 })
 
 test('Test the sacred object two array index property name has been upserted.', () => {
-  sacredObjectTwo.upsert({
-    key: 'jedi[1].name',
-    value: 'Jedi Knight Skywalker',
-  })
+  sacredObjectTwo.upsert('Jedi Knight Skywalker', { key: 'jedi[1].name' })
 
   assert.strictEqual(
     sacredObjectTwo.getValue().jedi[1].name,
@@ -113,13 +106,13 @@ test('Test the sacred object two array index property name has been upserted.', 
 })
 
 test('Test the sacred object two array index object name has been upserted.', () => {
-  sacredObjectTwo.upsert({
-    key: 'jedi[1]',
-    value: {
+  sacredObjectTwo.upsert(
+    {
       name: 'Darth Vader',
       lightsaberColour: 'red',
     },
-  })
+    { key: 'jedi[1]' },
+  )
 
   assert.deepStrictEqual(sacredObjectTwo.getValue().jedi[1], {
     name: 'Darth Vader',
@@ -128,7 +121,7 @@ test('Test the sacred object two array index object name has been upserted.', ()
 })
 
 test('Test the sacred object two array is replaced.', () => {
-  sacredObjectTwo.upsert({ key: 'jedi', value: baseObjectThree })
+  sacredObjectTwo.upsert(baseObjectThree, { key: 'jedi' })
 
   assert.deepStrictEqual(sacredObjectTwo.getValue().jedi, baseObjectThree)
 })
