@@ -30,12 +30,12 @@ import type {
 export function sacred<T = unknown>({
   changeOnly = false,
   debug,
-  eventLimit,
+  eventLimit = 1000,
   events: inputEvents = [],
   sideEffect,
   triggerOnCreate = false,
   value,
-}: SacredInput): Sacred<T> {
+}: SacredInput<T>): Sacred<T> {
   const events: SacredEvent[] = inputEvents
   const options: SacredOptions = { eventLimit }
   const originalValue: any = value // This never changes!
@@ -89,7 +89,7 @@ export function sacred<T = unknown>({
         options,
       })(input)
     },
-    upsert(input: SacredEventUpsert) {
+    upsert(input: SacredEventUpsert<T>) {
       return sacredUpsert({
         changeOnly,
         debug,

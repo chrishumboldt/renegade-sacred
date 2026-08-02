@@ -1,17 +1,20 @@
-import { isArray, objectCreateFromKeyValue, pipe } from '@renegaderocks/utility'
+import { isArray } from './is'
+import { objectCreateFromKeyValue } from './object'
+import { pipe, tap } from './pipe'
 import type { SacredEvent, SacredEventAdd, SacredPassedIn } from '../type'
-import { sacredAggregateAuto, sacredAggregateValue } from './aggregate'
+import {
+  sacredAggregateAuto,
+  sacredAggregateValue,
+  sacredAggregateValueApplyImmutable,
+} from './aggregate'
 import { sacredLogError } from './log'
-import { filter, map, tap, unit } from './unit'
 
-function aggregateAuto(input: SacredEventAdd) {
+function aggregateAuto(input: SacredEventAdd): void {
   sacredAggregateAuto({
     events: input.events,
     options: input.options,
     originalValue: input.originalValue,
   })
-
-  return input
 }
 
 function eventCreate(input: SacredEventAdd): SacredEvent {
@@ -37,33 +40,26 @@ function eventCreate(input: SacredEventAdd): SacredEvent {
   return sacredEvent
 }
 
-// Process the event and run any side effects.
-function eventPush(input: SacredEventAdd) {
-  return pipe(
-    map(eventCreate),
-    map((newEvent: SacredEvent) => {
-      // Check to make sure we have an array to push to since it could be empty.
-      if (!input.events) {
-        input.events = []
-      }
+// Create the event for this change and push it onto the event history.
+function eventPush(input: SacredEventAdd): void {
+  const newEvent = eventCreate(input)
 
-      input.events.push(newEvent)
-    }),
-  )(unit(input))
+  // Check to make sure we have an array to push to since it could be empty.
+  if (!input.events) {
+    input.events = []
+  }
+
+  input.events.push(newEvent)
 }
 
 export function sacredEventAdd(input: SacredEventAdd) {
   // If the sacred is in debug mode then log out the original input.
   if (input.debug === true) console.debug('sacredEventAdd', input)
 
-  return pipe(
-    filter(filterChangeOnly),
-    filter(filterCheckType),
-    tap(eventPush),
-    tap(setOriginalValue),
-    tap(aggregateAuto),
-    tap(upsertObservableValue),
-  )(unit(input))
+  if (!filterChangeOnly(input)) return
+  if (!filterCheckType(input)) return
+
+  pipe(input, tap(eventPush), tap(aggregateAuto), tap(upsertObservableValue))
 }
 
 // Filters.
@@ -148,21 +144,28 @@ export function sacredEventsCollapse({
   })
 }
 
-function setOriginalValue({ events, originalValue }: SacredEventAdd) {
-  if (originalValue !== undefined) return
-
-  originalValue = events[0].value
-}
-
-function upsertObservableValue(input: SacredEventAdd) {
+function upsertObservableValue(input: SacredEventAdd): void {
   const { events, observableValue, originalValue } = input
 
+  if (typeof originalValue !== 'object') {
+    observableValue?.upsert({
+      events,
+      originalValue,
+      value: sacredAggregateValue({ events, originalValue }),
+    })
+    return
+  }
+
+  // Apply just the newest event onto the already-aggregated previous
+  // value instead of refolding the whole event history on every write -
+  // see sacredAggregateValueApplyImmutable for why this is safe.
   observableValue?.upsert({
     events,
     originalValue,
-    value: sacredAggregateValue({
-      events,
-      originalValue,
+    value: sacredAggregateValueApplyImmutable({
+      aggregate: observableValue?.getValue()?.value,
+      event: events[events.length - 1],
+      sacredType: isArray(originalValue) ? 'array' : typeof originalValue,
     }),
   })
 }

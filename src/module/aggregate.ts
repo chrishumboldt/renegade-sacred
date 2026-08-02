@@ -1,9 +1,11 @@
+import { isArray } from './is'
 import {
-  isArray,
   objectClone,
   objectMerge,
+  objectMergeImmutable,
   objectUnset,
-} from '@renegaderocks/utility'
+  objectUnsetImmutable,
+} from './object'
 import type {
   SacredAggregateAuto,
   SacredAggregateValue,
@@ -59,25 +61,37 @@ function sacredAggregateGenericValue({
     : originalValue
 }
 
-// Aggregate the events in the object type.
+// Aggregate the events in the object type. Always folds onto a fresh,
+// privately-owned clone that nothing else can be holding a reference to,
+// so it's safe (and cheaper) to apply events by mutation here.
 export function sacredAggregateObjectValue({
   events = [],
   originalValue,
 }: SacredPassedIn) {
   const sacredType = isArray(originalValue) ? 'array' : typeof originalValue
 
-  return events.reduce((aggregate, event) => {
-    switch (event.type) {
-      case 'unset':
-        return objectUnset({ key: event.value as string, input: aggregate })
+  return events.reduce(
+    (aggregate, event) =>
+      sacredAggregateValueApply({ aggregate, event, sacredType }),
+    objectClone(originalValue),
+  )
+}
 
-      case 'upsert':
-        return sacredAggregateValueUpsert({ aggregate, event, sacredType })
+function sacredAggregateValueApply({
+  aggregate,
+  event,
+  sacredType,
+}: SacredAggregateValue) {
+  switch (event.type) {
+    case 'unset':
+      return objectUnset({ key: event.value as string, input: aggregate })
 
-      default:
-        return aggregate
-    }
-  }, objectClone(originalValue))
+    case 'upsert':
+      return sacredAggregateValueUpsert({ aggregate, event, sacredType })
+
+    default:
+      return aggregate
+  }
 }
 
 // Manage and upsert event on the aggregate.
@@ -107,5 +121,61 @@ function sacredAggregateValueUpsert({
   }
 
   // Things went haywire so just return the current aggregate.
+  return aggregate
+}
+
+// Apply a single event onto an already-aggregated value that might already
+// be held externally (e.g. from an earlier getValue()). Used incrementally
+// by upsertObservableValue - once, onto the previously cached value -
+// instead of refolding the whole event history on every write, which is
+// what keeps writes cheap regardless of how much history or accumulated
+// state exists. Copy-on-write so old references are never mutated.
+export function sacredAggregateValueApplyImmutable({
+  aggregate,
+  event,
+  sacredType,
+}: SacredAggregateValue) {
+  switch (event.type) {
+    case 'unset':
+      return objectUnsetImmutable({
+        key: event.value as string,
+        input: aggregate,
+      })
+
+    case 'upsert':
+      return sacredAggregateValueUpsertImmutable({
+        aggregate,
+        event,
+        sacredType,
+      })
+
+    default:
+      return aggregate
+  }
+}
+
+function sacredAggregateValueUpsertImmutable({
+  aggregate,
+  event: { metadata, value },
+  sacredType,
+}: SacredAggregateValue) {
+  if (
+    sacredType === 'array' &&
+    typeof metadata?.upsertKey === 'number' &&
+    !isArray(value)
+  ) {
+    const result = aggregate.slice()
+    result[metadata.upsertKey] = value
+    return result
+  }
+
+  if (sacredType === 'array' && isArray(value)) {
+    return aggregate.concat(value)
+  }
+
+  if (sacredType === 'object') {
+    return objectMergeImmutable(aggregate, value as any)
+  }
+
   return aggregate
 }

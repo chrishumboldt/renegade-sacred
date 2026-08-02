@@ -1,4 +1,4 @@
-import { logColour } from '@renegaderocks/utility'
+import { logColour } from './log'
 import type { SacredPassedIn } from '../type'
 
 export function sacredLogLedger({

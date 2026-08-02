@@ -1,9 +1,11 @@
-import { expect, test } from 'bun:test'
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
 import type { SacredAggregateAuto } from '../type'
 import { sacredAggregateAuto, sacredAggregateValue } from './aggregate'
+import { sacred } from './sacred'
 
 test('Test a basic value aggregation.', () => {
-  expect(
+  assert.deepStrictEqual(
     sacredAggregateValue({
       events: [
         { type: 'upsert', value: { name: 'Ani' } },
@@ -11,14 +13,15 @@ test('Test a basic value aggregation.', () => {
       ],
       originalValue: {},
     }),
-  ).toStrictEqual({
-    name: 'Ani',
-    age: 9,
-  })
+    {
+      name: 'Ani',
+      age: 9,
+    },
+  )
 })
 
 test('Test a basic value aggregation with an unset.', () => {
-  expect(
+  assert.strictEqual(
     sacredAggregateValue({
       events: [
         { type: 'upsert', value: { name: 'Ani', age: 9 } },
@@ -26,11 +29,12 @@ test('Test a basic value aggregation with an unset.', () => {
       ],
       originalValue: {},
     }).age,
-  ).toBe(undefined)
+    undefined,
+  )
 })
 
 test('Test a value aggregation array with an unset.', () => {
-  expect(
+  assert.strictEqual(
     sacredAggregateValue({
       events: [
         {
@@ -45,11 +49,12 @@ test('Test a value aggregation array with an unset.', () => {
       ],
       originalValue: [],
     }).length,
-  ).toBe(1)
+    1,
+  )
 })
 
 test('Test a complex aggregation with an unset.', () => {
-  expect(
+  assert.strictEqual(
     sacredAggregateValue({
       events: [
         {
@@ -66,7 +71,8 @@ test('Test a complex aggregation with an unset.', () => {
       ],
       originalValue: {},
     }).jedi[0].name,
-  ).toBe(undefined)
+    undefined,
+  )
 })
 
 test('Test that value auto aggregation works while adding events over time.', () => {
@@ -78,7 +84,7 @@ test('Test that value auto aggregation works while adding events over time.', ()
     originalValue: {},
   }
 
-  expect(sacredAggregateAuto(autoAggregationOne).events.length).toBe(0)
+  assert.strictEqual(sacredAggregateAuto(autoAggregationOne).events.length, 0)
 
   autoAggregationOne.events.push({
     value: { name: 'Ani', age: 9 },
@@ -90,29 +96,57 @@ test('Test that value auto aggregation works while adding events over time.', ()
     type: 'upsert',
   })
 
-  expect(sacredAggregateAuto(autoAggregationOne).events.length).toBe(2)
+  assert.strictEqual(sacredAggregateAuto(autoAggregationOne).events.length, 2)
 
   autoAggregationOne.events.push({
     value: { name: 'Jedi Knight Anakin Skywalker', age: 18 },
     type: 'upsert',
   })
 
-  expect(sacredAggregateAuto(autoAggregationOne).events.length).toBe(2)
+  assert.strictEqual(sacredAggregateAuto(autoAggregationOne).events.length, 2)
 
   autoAggregationOne.events.push({
     value: { name: 'Darth Vader', age: 24 },
     type: 'upsert',
   })
 
-  expect(sacredAggregateAuto(autoAggregationOne).events.length).toBe(2)
+  assert.strictEqual(sacredAggregateAuto(autoAggregationOne).events.length, 2)
 
-  expect(autoAggregationOne.events[0]).toStrictEqual({
+  assert.deepStrictEqual(autoAggregationOne.events[0], {
     type: 'upsert',
     value: { name: 'Jedi Knight Anakin Skywalker', age: 18 },
   })
 
-  expect(autoAggregationOne.events[1]).toStrictEqual({
+  assert.deepStrictEqual(autoAggregationOne.events[1], {
     type: 'upsert',
     value: { name: 'Darth Vader', age: 24 },
   })
+})
+
+test('Test that sacred() defaults eventLimit to 1000.', () => {
+  const sacredThing = sacred({ value: { count: 0 } })
+
+  assert.strictEqual(sacredThing.getOptions().eventLimit, 1000)
+})
+
+test('Test that the default eventLimit keeps the event history bounded.', () => {
+  const sacredThing = sacred({ value: { count: 0 } })
+
+  for (let i = 0; i < 1500; i++) {
+    sacredThing.upsert({ key: 'count', value: i })
+  }
+
+  assert.ok(sacredThing.getEvents().length <= 1000)
+  assert.strictEqual(sacredThing.getValue().count, 1499)
+})
+
+test('Test that eventLimit: 0 opts out of the default and allows unlimited growth.', () => {
+  const sacredThing = sacred({ value: { count: 0 }, eventLimit: 0 })
+
+  for (let i = 0; i < 1500; i++) {
+    sacredThing.upsert({ key: 'count', value: i })
+  }
+
+  assert.strictEqual(sacredThing.getEvents().length, 1500)
+  assert.strictEqual(sacredThing.getValue().count, 1499)
 })

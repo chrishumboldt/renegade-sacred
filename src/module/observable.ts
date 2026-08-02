@@ -1,10 +1,20 @@
-import { stringRandom } from '@renegaderocks/utility'
+import { sacredLogError } from './log'
+import { stringRandom } from './string'
 import type {
   Observable,
   ObservableEffect,
   ObservableInput,
   Observer,
 } from '../type'
+
+// Run an effect without letting it take down the rest of a broadcast.
+function effectRun(effect: ObservableEffect, value: any) {
+  try {
+    effect(value)
+  } catch (error) {
+    sacredLogError(`An observer threw an error: ${error}`)
+  }
+}
 
 export function observable({
   sideEffect = [],
@@ -18,7 +28,7 @@ export function observable({
   // run the effect immediately if required.
   for (let effect of sideEffect) {
     effects.set(`side/effect/${stringRandom()}`, effect)
-    triggerOnCreate && effect(observableValue)
+    triggerOnCreate && effectRun(effect, observableValue)
   }
 
   return {
@@ -49,8 +59,9 @@ export function observable({
 
       if (effects.size < 1) return
 
-      // Iterate over the effects and broadcast the value.
-      effects.forEach(effect => effect(observableValue))
+      // Iterate over the effects and broadcast the value. One observer
+      // throwing must not stop the rest from being notified.
+      effects.forEach(effect => effectRun(effect, observableValue))
     },
   }
 }
