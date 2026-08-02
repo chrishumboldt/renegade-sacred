@@ -1,15 +1,16 @@
 # Renegade Sacred
 
-Mutable state causes bugs that are hard to trace: a value can change out from under code that never asked it to. Immutability fixes that, but the naive version of it (copy the whole value on every change) gets expensive fast, especially for large or deeply nested objects.
+Mutable state causes bugs that are hard to trace as values can change out from under code that never asked it to. Immutability fixes that, but the naive version of it, copy the whole value on every change gets expensive fast especially for large or deeply nested objects.
 
-Sacreds take the approach event-sourced systems use: instead of copying the value, copy the change. A Sacred keeps its original value forever and untouched. Every `upsert`/`unset` you make becomes an event in an append-only history instead of a mutation, and `getValue()` gives you a value derived by folding that history over the original, not a separate absolute copy. Because reads are derived rather than reassigned, the same Sacred reference can be passed around indefinitely and will always reflect the latest state.
+Sacreds take the approach event-sourced systems use which is instead of copying the value, store the change. A Sacred keeps its original value forever and untouched. Every `upsert`/`unset` you make becomes an event in an append-only ledger instead of a mutation and `getValue()` gives you a value derived by folding that history over the original, not a separate absolute copy. Because reads are derived rather than reassigned, the same Sacred reference can be passed around indefinitely and will always reflect the latest state.
 
-This model also gives you undo and persistence essentially for free: `revert()` steps back through the event history, and because that history is plain, JSON-serializable data, `sacredSerialize`/`sacredHydrate` can rebuild a Sacred exactly as it was. Types are also enforced: `sacred()` infers its type from the value you give it, so TypeScript catches a type-mismatched whole-value upsert (`sacredThing.upsert({ value: ... })`) at compile time, and the same mismatch is rejected at runtime with a console warning instead of silently changing the Sacred's type. Upserting via a key path (`sacredThing.upsert({ key: 'attributes.age', value: ... })`) targets a nested slice rather than the whole value, so it isn't practically type-checkable against a string path and stays loosely typed.
+This model also gives you undo and persistence essentially for free. `revert()` steps back through the event history and because that history is plain, JSON-serializable data, `sacredSerialize`/`sacredHydrate` can rebuild a Sacred exactly as it was. Types are also enforced as `sacred()` infers its type from the value you give it, so TypeScript catches a type-mismatched whole-value upsert (`sacredThing.upsert({ value: ... })`) at compile time, and the same mismatch is rejected at runtime with a console warning instead of silently changing the Sacred's type. Upserting via a key path (`sacredThing.upsert({ key: 'attributes.age', value: ... })`) targets a nested slice rather than the whole value, so it isn't practically type-checkable against a string path and stays loosely typed.
 
 - [Using a Sacred](#using-a-sacred)
 - [Sacred Change Only](#sacred-change-only)
 - [Sacred Functions](#sacred-functions)
 - [Sacred Arrays](#sacred-arrays)
+- [Sacred Async](#sacred-async)
 - [Sacred Auto Aggregation](#sacred-auto-aggregation)
 - [Sacred Ledger](#sacred-ledger)
 - [Sacred Merge](#sacred-merge)
@@ -110,6 +111,40 @@ sacredThing.upsert({ key: 0, value: 'Young Ani' })
 
 sacredThing.getValue() // ['Young Ani', 'Padawan Skywalker', 'Jedi Knight Skywalker']
 ```
+
+#### Sacred Async
+
+Sacred itself is synchronous only. `sacredAsync` wraps a promise-returning function in a sacred that tracks its status, the way most state libraries model async work: `idle` -> `pending` -> `fulfilled`/`rejected`.
+
+```javascript
+import { sacredAsync } from '@renegaderocks/sacred'
+
+async function fetchJedi(name) {
+  if (name === 'Anakin') throw new Error('turned to the dark side')
+  return `Padawan ${name}`
+}
+
+const jedi = sacredAsync(fetchJedi)
+
+jedi.observe(state => {
+  console.log('State:', state)
+})
+// State: { status: 'idle', data: null, error: null }
+
+await jedi.run('Ani')
+// State: { status: 'pending', data: null, error: null }
+// State: { status: 'fulfilled', data: 'Padawan Ani', error: null }
+
+await jedi.run('Anakin').catch(() => {})
+// State: { status: 'pending', data: null, error: null }
+// State: { status: 'rejected', data: null, error: Error('turned to the dark side') }
+```
+
+`run()` still returns the underlying promise, so you can `await` or `.catch()` it directly as shown above, independent of observing the sacred.
+
+If two calls to `run()` overlap, only the most recently started one is allowed to write its result. This matters when a slow call started first is still in flight when a faster call started after it resolves. Without a guard, the slow call resolving later would overwrite the fresher result. The call that started later always wins, regardless of resolution order, and each call's own returned promise still settles with its own result either way, whether or not it ends up writing to the sacred.
+
+`sacredAsync` takes the same options as `sacred` (minus `value`, since that's always the status object above) as a second argument.
 
 #### Sacred Auto Aggregation
 
@@ -468,7 +503,7 @@ sacredThing.getValue() // { age: 9 }
 
 #### Sacred Select
 
-`sacredSelect` derives a value from a sacred and only notifies its observers when the *selected* slice actually changes, not on every change to the source. This is cheap because of structural sharing: writing to one branch of a sacred object never touches the reference of an untouched sibling branch, so a selector comparing by reference can tell at a glance whether its slice was affected.
+`sacredSelect` derives a value from a sacred and only notifies its observers when the _selected_ slice actually changes, not on every change to the source. This is cheap because of structural sharing: writing to one branch of a sacred object never touches the reference of an untouched sibling branch, so a selector comparing by reference can tell at a glance whether its slice was affected.
 
 ```javascript
 import { sacred, sacredSelect } from '@renegaderocks/sacred'
@@ -514,11 +549,7 @@ import { sacred } from '@renegaderocks/sacred'
 import type { SacredEffect } from '@renegaderocks/sacred'
 
 // The side effect.
-const logOutEverything = ({
-  events,
-  originalValue,
-  value,
-}: SacredEffect) => {
+const logOutEverything = ({ events, originalValue, value }: SacredEffect) => {
   console.log('Trigger Event:', events[events.length - 1])
   console.log('Events:', events)
   console.log('Original Value:', originalValue)

@@ -1,3 +1,4 @@
+export * from './async'
 export * from './merge'
 export * from './persist'
 export * from './sacred'

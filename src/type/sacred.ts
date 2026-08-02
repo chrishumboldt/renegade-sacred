@@ -24,6 +24,23 @@ export type SacredChangeOnly =
   | boolean
   | ((previousValue: any, nextValue: any) => boolean)
 
+export type SacredAsyncStatus = 'idle' | 'pending' | 'fulfilled' | 'rejected'
+
+// data/error are explicit null rather than undefined so a transition
+// actually clears the previous one - object upserts merge by key, and an
+// undefined value is treated as "no change" (see objectMerge), so only an
+// explicit null overwrites it.
+export type SacredAsyncState<D> = {
+  status: SacredAsyncStatus
+  data: D | null
+  error: unknown | null
+}
+
+export type SacredAsyncOptions<D> = Omit<
+  SacredInput<SacredAsyncState<D>>,
+  'value'
+>
+
 export type SacredAggregateAuto = {
   events: SacredEvent[]
   options: SacredOptions
