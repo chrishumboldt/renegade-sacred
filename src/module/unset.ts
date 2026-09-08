@@ -10,7 +10,7 @@ export function sacredUnset({
 }: SacredPassedIn) {
   return ({ key, signature = false }: SacredEventUnset) => {
     if (typeof originalValue !== 'object') {
-      sacredLogError(`Unset can only be run on objects.`)
+      sacredLogError('Unset can only be run on objects.')
       return
     }
 

@@ -9,7 +9,7 @@ export function sacredUpsert({
   originalValue,
   options = {},
 }: SacredPassedIn) {
-  return ({ key, signature = false, value }: SacredEventUpsert) => {
+  return ({ key, replace, signature = false, value }: SacredEventUpsert) => {
     sacredEventAdd({
       changeOnly,
       checkType: key === undefined,
@@ -19,6 +19,7 @@ export function sacredUpsert({
       observableValue,
       originalValue,
       options,
+      replace,
       signature,
       type: 'upsert',
       value,

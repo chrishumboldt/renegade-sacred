@@ -1,21 +1,24 @@
-import { isArray, objectCreateFromKeyValue, pipe } from '@renegaderocks/utility'
-import type { SacredEvent, SacredEventAdd, SacredPassedIn } from '../type'
-import { sacredAggregateAuto, sacredAggregateValue } from './aggregate'
+import { isArray } from './is'
 import { sacredLogError } from './log'
-import { filter, map, tap, unit } from './unit'
+import { objectCreateFromKeyValue } from './object'
+import { pipe, tap } from './pipe'
+import type { SacredEvent, SacredEventAdd, SacredPassedIn } from '../type'
+import {
+  sacredAggregateAuto,
+  sacredAggregateValue,
+  sacredAggregateValueApplyImmutable,
+} from './aggregate'
 
-function aggregateAuto(input: SacredEventAdd) {
+function aggregateAuto(input: SacredEventAdd): void {
   sacredAggregateAuto({
     events: input.events,
     options: input.options,
     originalValue: input.originalValue,
   })
-
-  return input
 }
 
 function eventCreate(input: SacredEventAdd): SacredEvent {
-  const { key, signature, type, value } = input
+  const { key, replace, signature, type, value } = input
   const sacredEvent: SacredEvent = {
     metadata: {
       eventTimestamp: Date.now(),
@@ -25,9 +28,18 @@ function eventCreate(input: SacredEventAdd): SacredEvent {
     value,
   }
 
+  // Only set when true, same as upsertKey below, so an ordinary event's
+  // metadata doesn't carry a spurious replace: undefined key.
+  if (replace) sacredEvent.metadata!.replace = true
+
   if (key !== undefined) {
-    if (typeof key === 'string') {
-      // Object key type.
+    if (typeof key === 'string' && replace) {
+      // Keep the raw value and path rather than building a nested
+      // partial object: sacredAggregateValueUpsert(Immutable) uses
+      // the path to replace just that key outright (see objectSet),
+      // instead of merging the constructed nested object in.
+      sacredEvent.metadata!.upsertKey = key
+    } else if (typeof key === 'string') {
       sacredEvent.value = objectCreateFromKeyValue({ key, value })
     } else if (typeof key === 'number') {
       sacredEvent.metadata!.upsertKey = key
@@ -37,59 +49,60 @@ function eventCreate(input: SacredEventAdd): SacredEvent {
   return sacredEvent
 }
 
-// Process the event and run any side effects.
-function eventPush(input: SacredEventAdd) {
-  return pipe(
-    map(eventCreate),
-    map((newEvent: SacredEvent) => {
-      // Check to make sure we have an array to push to since it could be empty.
-      if (!input.events) {
-        input.events = []
-      }
+// Create the event for this change and push it onto the event history.
+function eventPush(input: SacredEventAdd): void {
+  const newEvent = eventCreate(input)
 
-      input.events.push(newEvent)
-    }),
-  )(unit(input))
-}
-
-export function sacredEventAdd(input: SacredEventAdd) {
-  // If the sacred is in debug mode then log out the original input.
-  if (input.debug === true) console.debug('sacredEventAdd', input)
-
-  return pipe(
-    filter(filterChangeOnly),
-    filter(filterCheckType),
-    tap(eventPush),
-    tap(setOriginalValue),
-    tap(aggregateAuto),
-    tap(upsertObservableValue),
-  )(unit(input))
-}
-
-// Filters.
-function filterChangeOnly(input: SacredEventAdd): boolean {
-  const { changeOnly = true, events, value } = input
-  const latestEvent = events.length > 0 ? events[events.length - 1] : undefined
-
-  if (changeOnly) {
-    if (latestEvent === undefined || latestEvent.value !== value) return true
-    return false
+  // Check to make sure we have an array to push to since it could be empty.
+  if (!input.events) {
+    input.events = []
   }
 
-  return true
+  input.events.push(newEvent)
+}
+
+function filterAggregateSupported(input: SacredEventAdd): boolean {
+  const { key, options, type } = input
+
+  if (options.aggregate !== false) return true
+  if (type !== 'unset' && key === undefined) return true
+
+  sacredLogError(
+    type === 'unset'
+      ? 'unset() is not supported on a sacred created with { aggregate: false }. Only whole-value upsert() is allowed.'
+      : 'A keyed upsert() is not supported on a sacred created with { aggregate: false }. Only whole-value upsert() is allowed.',
+  )
+
+  return false
+}
+
+function filterChangeOnly(input: SacredEventAdd): boolean {
+  const { changeOnly = true, events, value } = input
+
+  if (!changeOnly) return true
+
+  const latestEvent = events.length > 0 ? events[events.length - 1] : undefined
+  if (latestEvent === undefined) return true
+
+  const isSame =
+    typeof changeOnly === 'function'
+      ? changeOnly(latestEvent.value, value)
+      : latestEvent.value === value
+
+  return !isSame
 }
 
 function filterCheckType(input: SacredEventAdd): boolean {
   const { checkType = true, originalValue, value } = input
 
-  // Filter out by types.
-  if (
-    checkType &&
-    originalValue !== undefined &&
-    typeof originalValue !== typeof value
-  ) {
+  if (!checkType || originalValue === undefined) return true
+
+  const originalType = sacredTypeLabel(originalValue)
+  const valueType = sacredTypeLabel(value)
+
+  if (originalType !== valueType) {
     sacredLogError(
-      `The set value is of type "${typeof value}". Expected the type to be "${typeof originalValue}".`,
+      `The set value is of type "${valueType}". Expected the type to be "${originalType}".`,
     )
 
     return false
@@ -98,9 +111,35 @@ function filterCheckType(input: SacredEventAdd): boolean {
   return true
 }
 
+function filterReplaceSupported(input: SacredEventAdd): boolean {
+  const { key, replace } = input
+
+  if (!replace || key === undefined) return true
+  if (typeof key === 'string') return true
+
+  sacredLogError(
+    'A number-keyed (array index) upsert() cannot also set replace: true, since an array-index upsert already replaces that index outright.',
+  )
+
+  return false
+}
+
+export function sacredEventAdd(input: SacredEventAdd) {
+  // If the sacred is in debug mode then log out the original input.
+  if (input.debug === true) console.debug('sacredEventAdd', input)
+
+  if (!filterAggregateSupported(input)) return
+  if (!filterChangeOnly(input)) return
+  if (!filterCheckType(input)) return
+  if (!filterReplaceSupported(input)) return
+
+  pipe(input, tap(eventPush), tap(aggregateAuto), tap(upsertObservableValue))
+}
+
 // Aggregate the entire event history into one event.
 export function sacredEventsCollapse({
   events,
+  options,
   originalValue,
 }: SacredPassedIn) {
   // Set the default value since we do not want to fold over the original
@@ -131,6 +170,7 @@ export function sacredEventsCollapse({
 
   const theAggregate = sacredAggregateValue({
     events,
+    options,
     originalValue: defaultValue,
   })
 
@@ -148,21 +188,40 @@ export function sacredEventsCollapse({
   })
 }
 
-function setOriginalValue({ events, originalValue }: SacredEventAdd) {
-  if (originalValue !== undefined) return
-
-  originalValue = events[0].value
+// typeof alone can't tell an array or null from a plain object (all three
+// report "object"), so they're called out separately here.
+function sacredTypeLabel(check: any): string {
+  if (check === null) return 'null'
+  if (isArray(check)) return 'array'
+  return typeof check
 }
 
-function upsertObservableValue(input: SacredEventAdd) {
-  const { events, observableValue, originalValue } = input
+function upsertObservableValue(input: SacredEventAdd): void {
+  const { events, observableValue, options, originalValue } = input
 
+  if (typeof originalValue !== 'object') {
+    observableValue?.upsert({
+      events,
+      originalValue,
+      value: sacredAggregateValue({ events, options, originalValue }),
+    })
+    return
+  }
+
+  // Apply just the newest event onto the already-aggregated previous
+  // value instead of refolding the whole event history on every write.
+  // See sacredAggregateValueApplyImmutable for why this is safe. That
+  // function itself checks the newest event's own replace flag, so a
+  // whole-value upsert marked replace: true (including every write on
+  // an aggregate: false sacred, which stamps this automatically, see
+  // sacred.ts) short-circuits to the event's value rather than merging.
   observableValue?.upsert({
     events,
     originalValue,
-    value: sacredAggregateValue({
-      events,
-      originalValue,
+    value: sacredAggregateValueApplyImmutable({
+      aggregate: observableValue?.getValue()?.value,
+      event: events[events.length - 1],
+      sacredType: isArray(originalValue) ? 'array' : typeof originalValue,
     }),
   })
 }

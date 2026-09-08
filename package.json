@@ -1,25 +1,33 @@
 {
   "name": "@renegaderocks/sacred",
   "version": "0.0.3",
+  "description": "An immutable value that can change over time.",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.d.ts"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "build": "bun run clean && bun build.js",
     "clean": "rm -rf ./dist",
-    "publish": "bun publish.js"
+    "build": "npm run clean && tsc",
+    "pretest": "npm run build",
+    "test": "node --test ./dist",
+    "stress": "npm run build && node scripts/stress-test.js",
+    "prepublishOnly": "npm test"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/chrishumboldt/renegade-sacred"
   },
-  "dependencies": {
-    "@renegaderocks/utility": "latest"
-  },
   "devDependencies": {
-    "bun-plugin-dts": "latest",
-    "bun-types": "latest",
-    "prettier": "2"
-  },
-  "peerDependencies": {
-    "typescript": "latest"
+    "@types/node": "^18.19.0",
+    "prettier": "2",
+    "typescript": "^5.9.3"
   }
 }

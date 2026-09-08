@@ -7,12 +7,10 @@
     "module": "NodeNext",
     "moduleResolution": "nodenext",
     "outDir": "./dist",
-    "rootDir": "./",
+    "rootDir": "./src",
     "skipLibCheck": true,
     "strict": true,
-    "target": "es2022",
-    "types": [
-      "bun-types"
-    ]
-  }
+    "target": "es2022"
+  },
+  "include": ["src"]
 }

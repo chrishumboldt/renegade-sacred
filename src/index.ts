@@ -1,1 +1,6 @@
+export * from './module/async'
+export * from './module/merge'
+export * from './module/persist'
 export * from './module/sacred'
+export * from './module/select'
+export * from './type'

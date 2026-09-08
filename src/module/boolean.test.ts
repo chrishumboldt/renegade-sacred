@@ -1,35 +1,36 @@
-import { expect, test } from 'bun:test'
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
 import { sacred } from './sacred'
 
-const sacredBoolean = sacred({ value: true })
+const sacredBoolean = sacred(true)
 
-sacredBoolean.upsert({ value: false })
-sacredBoolean.upsert({ value: true })
-sacredBoolean.upsert({ value: false })
+sacredBoolean.upsert(false)
+sacredBoolean.upsert(true)
+sacredBoolean.upsert(false)
 
 test('Test a sacred boolean orignal value.', () => {
-  expect(sacredBoolean.getOriginalValue()).toBe(true)
+  assert.strictEqual(sacredBoolean.getOriginalValue(), true)
 })
 
 test('Test a sacred boolean event length.', () => {
-  expect(sacredBoolean.getEvents().length).toBe(3)
+  assert.strictEqual(sacredBoolean.getEvents().length, 3)
 })
 
 test('Test the sacred boolean event 0.', () => {
-  expect(sacredBoolean.getEvents()[0].type).toBe('upsert')
-  expect(sacredBoolean.getEvents()[0].value).toBe(false)
+  assert.strictEqual(sacredBoolean.getEvents()[0].type, 'upsert')
+  assert.strictEqual(sacredBoolean.getEvents()[0].value, false)
 })
 
 test('Test the sacred boolean event 1.', () => {
-  expect(sacredBoolean.getEvents()[1].type).toBe('upsert')
-  expect(sacredBoolean.getEvents()[1].value).toBe(true)
+  assert.strictEqual(sacredBoolean.getEvents()[1].type, 'upsert')
+  assert.strictEqual(sacredBoolean.getEvents()[1].value, true)
 })
 
 test('Test the sacred boolean event 2.', () => {
-  expect(sacredBoolean.getEvents()[2].type).toBe('upsert')
-  expect(sacredBoolean.getEvents()[2].value).toBe(false)
+  assert.strictEqual(sacredBoolean.getEvents()[2].type, 'upsert')
+  assert.strictEqual(sacredBoolean.getEvents()[2].value, false)
 })
 
 test('Test a sacred boolean current value.', () => {
-  expect(sacredBoolean.getValue()).toBe(false)
+  assert.strictEqual(sacredBoolean.getValue(), false)
 })

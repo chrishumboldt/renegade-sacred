@@ -1,4 +1,5 @@
-import { expect, test } from 'bun:test'
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
 import { sacred } from './sacred'
 
 const baseObject = {
@@ -34,27 +35,25 @@ const baseObjectThree = [
     lightsaberColour: 'green',
   },
 ]
-const sacredObject = sacred<any>({
-  value: baseObject,
-})
-const sacredObjectTwo = sacred<any>({ value: baseObjectTwo })
+const sacredObject = sacred<any>(baseObject)
+const sacredObjectTwo = sacred<any>(baseObjectTwo)
 
 // Add events to the value.
-sacredObject.upsert({ key: 'lightsaber.colour', value: 'red' })
-sacredObject.upsert({ key: 'name', value: 'Darth Vader' })
-sacredObject.upsert({ key: 'lightsaber.hilt', value: 'black' })
-sacredObject.upsert({ key: 'affiliation', value: 'Sith' })
+sacredObject.upsert('red', { key: 'lightsaber.colour' })
+sacredObject.upsert('Darth Vader', { key: 'name' })
+sacredObject.upsert('black', { key: 'lightsaber.hilt' })
+sacredObject.upsert('Sith', { key: 'affiliation' })
 
 test('Test the sacred object original value.', () => {
-  expect(sacredObject.getOriginalValue()).toBe(baseObject)
+  assert.strictEqual(sacredObject.getOriginalValue(), baseObject)
 })
 
 test('Test the sacred object event length.', () => {
-  expect(sacredObject.getEvents().length).toBe(4)
+  assert.strictEqual(sacredObject.getEvents().length, 4)
 })
 
 test('Test the sacred object has been upserted.', () => {
-  expect(sacredObject.getValue()).toStrictEqual({
+  assert.deepStrictEqual(sacredObject.getValue(), {
     name: 'Darth Vader',
     affiliation: 'Sith',
     other: {
@@ -69,15 +68,13 @@ test('Test the sacred object has been upserted.', () => {
 
 test('Test the sacred object has been upserted with an object merge.', () => {
   sacredObject.upsert({
-    value: {
-      affiliation: 'Sith',
-      lightsaber: {
-        hilt: 'black',
-      },
+    affiliation: 'Sith',
+    lightsaber: {
+      hilt: 'black',
     },
   })
 
-  expect(sacredObject.getValue()).toStrictEqual({
+  assert.deepStrictEqual(sacredObject.getValue(), {
     name: 'Darth Vader',
     affiliation: 'Sith',
     other: {
@@ -91,40 +88,40 @@ test('Test the sacred object has been upserted with an object merge.', () => {
 })
 
 test('Test the sacred object name[0] has been changed.', () => {
-  sacredObject.upsert({ key: 'other.names[0]', value: 'Young Ani' })
-  expect(sacredObject.getValue().other.names[0]).toBe('Young Ani')
+  sacredObject.upsert('Young Ani', { key: 'other.names[0]' })
+  assert.strictEqual(sacredObject.getValue().other.names[0], 'Young Ani')
 })
 
 test('Test the sacred object two original value.', () => {
-  expect(sacredObjectTwo.getOriginalValue()).toBe(baseObjectTwo)
+  assert.strictEqual(sacredObjectTwo.getOriginalValue(), baseObjectTwo)
 })
 
 test('Test the sacred object two array index property name has been upserted.', () => {
-  sacredObjectTwo.upsert({
-    key: 'jedi[1].name',
-    value: 'Jedi Knight Skywalker',
-  })
+  sacredObjectTwo.upsert('Jedi Knight Skywalker', { key: 'jedi[1].name' })
 
-  expect(sacredObjectTwo.getValue().jedi[1].name).toBe('Jedi Knight Skywalker')
+  assert.strictEqual(
+    sacredObjectTwo.getValue().jedi[1].name,
+    'Jedi Knight Skywalker',
+  )
 })
 
 test('Test the sacred object two array index object name has been upserted.', () => {
-  sacredObjectTwo.upsert({
-    key: 'jedi[1]',
-    value: {
+  sacredObjectTwo.upsert(
+    {
       name: 'Darth Vader',
       lightsaberColour: 'red',
     },
-  })
+    { key: 'jedi[1]' },
+  )
 
-  expect(sacredObjectTwo.getValue().jedi[1]).toStrictEqual({
+  assert.deepStrictEqual(sacredObjectTwo.getValue().jedi[1], {
     name: 'Darth Vader',
     lightsaberColour: 'red',
   })
 })
 
 test('Test the sacred object two array is replaced.', () => {
-  sacredObjectTwo.upsert({ key: 'jedi', value: baseObjectThree })
+  sacredObjectTwo.upsert(baseObjectThree, { key: 'jedi' })
 
-  expect(sacredObjectTwo.getValue().jedi).toStrictEqual(baseObjectThree)
+  assert.deepStrictEqual(sacredObjectTwo.getValue().jedi, baseObjectThree)
 })

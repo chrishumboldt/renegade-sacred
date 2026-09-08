@@ -1,16 +1,19 @@
-import { expect, test } from 'bun:test'
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
 import { sacred } from './sacred'
 
-const sacredArray = sacred<string[]>({
-  value: ['Yoda', 'Obi-Wan Kenobi', 'Anakin Skywalker'],
-})
+const sacredArray = sacred<string[]>([
+  'Yoda',
+  'Obi-Wan Kenobi',
+  'Anakin Skywalker',
+])
 
-sacredArray.upsert({ value: ['Mace Windu'] })
-sacredArray.upsert({ value: ['Qui-Gon Jinn'] })
-sacredArray.upsert({ key: 2, value: 'Darth Vader' })
+sacredArray.upsert(['Mace Windu'])
+sacredArray.upsert(['Qui-Gon Jinn'])
+sacredArray.upsert('Darth Vader', { key: 2 })
 
 test('Test a sacred array orignal value.', () => {
-  expect(sacredArray.getOriginalValue()).toStrictEqual([
+  assert.deepStrictEqual(sacredArray.getOriginalValue(), [
     'Yoda',
     'Obi-Wan Kenobi',
     'Anakin Skywalker',
@@ -18,25 +21,25 @@ test('Test a sacred array orignal value.', () => {
 })
 
 test('Test a sacred array event length.', () => {
-  expect(sacredArray.getEvents().length).toBe(3)
+  assert.strictEqual(sacredArray.getEvents().length, 3)
 })
 
 test('Test a sacred array event 0.', () => {
-  expect(sacredArray.getEvents()[0].type).toBe('upsert')
-  expect(sacredArray.getEvents()[0].value).toStrictEqual(['Mace Windu'])
+  assert.strictEqual(sacredArray.getEvents()[0].type, 'upsert')
+  assert.deepStrictEqual(sacredArray.getEvents()[0].value, ['Mace Windu'])
 })
 
 test('Test a sacred array event 1.', () => {
-  expect(sacredArray.getEvents()[1].type).toBe('upsert')
-  expect(sacredArray.getEvents()[1].value).toStrictEqual(['Qui-Gon Jinn'])
+  assert.strictEqual(sacredArray.getEvents()[1].type, 'upsert')
+  assert.deepStrictEqual(sacredArray.getEvents()[1].value, ['Qui-Gon Jinn'])
 })
 
 test('Test a sacred array item was changed based on key.', () => {
-  expect(sacredArray.getValue()[2]).toBe('Darth Vader')
+  assert.strictEqual(sacredArray.getValue()[2], 'Darth Vader')
 })
 
 test('Test a sacred array value.', () => {
-  expect(sacredArray.getValue()).toStrictEqual([
+  assert.deepStrictEqual(sacredArray.getValue(), [
     'Yoda',
     'Obi-Wan Kenobi',
     'Darth Vader',
