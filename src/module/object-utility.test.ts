@@ -117,7 +117,7 @@ test('Test objectUnset removes a top-level array element with no prefix.', () =>
   assert.deepStrictEqual(input, ['Obi-Wan Kenobi'])
 })
 
-// Copy-on-write variants - used wherever the value being updated might
+// Copy-on-write variants, used wherever the value being updated might
 // already be held externally (e.g. by a caller's earlier getValue()).
 
 test('Test objectMergeImmutable does not mutate the source.', () => {

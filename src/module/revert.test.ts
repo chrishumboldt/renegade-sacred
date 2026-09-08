@@ -69,7 +69,7 @@ test('Test that revert() cannot recover an intermediate state lost to an eventLi
   assert.strictEqual(sacredThing.getValue().age, 11)
 
   sacredThing.revert()
-  // Jumps straight to the original value - age:10 no longer exists as a
-  // distinct, revertible step.
+  // Jumps straight to the original value, since age:10 no longer exists
+  // as a distinct, revertible step.
   assert.strictEqual(sacredThing.getValue().age, 9)
 })

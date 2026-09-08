@@ -148,7 +148,7 @@ timeIt('100k getValue() reads after the write history above', () => {
 // size, since `{ ...bigObject, oneKey: value }` is O(size) in plain JS.
 // eventLimit only bounds the event log, not this.
 console.log('\nScaling check: writing into ONE large flat map as it grows')
-console.log('(this stays expensive regardless of eventLimit - see the comment above)\n')
+console.log('(this stays expensive regardless of eventLimit, see the comment above)\n')
 
 function scalingRun(label, eventLimit) {
   const s = sacred({ entities: { items: {} } }, { eventLimit })
@@ -201,5 +201,5 @@ console.log(
   'entity map (see the "Scaling check" section) still cost roughly the size',
 )
 console.log(
-  'of that map - an inherent plain-object limitation, not an eventLimit one.',
+  'of that map, an inherent plain-object limitation, not an eventLimit one.',
 )

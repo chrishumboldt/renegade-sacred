@@ -69,8 +69,8 @@ function filterAggregateSupported(input: SacredEventAdd): boolean {
 
   sacredLogError(
     type === 'unset'
-      ? 'unset() is not supported on a sacred created with { aggregate: false } - only whole-value upsert() is allowed.'
-      : 'A keyed upsert() is not supported on a sacred created with { aggregate: false } - only whole-value upsert() is allowed.',
+      ? 'unset() is not supported on a sacred created with { aggregate: false }. Only whole-value upsert() is allowed.'
+      : 'A keyed upsert() is not supported on a sacred created with { aggregate: false }. Only whole-value upsert() is allowed.',
   )
 
   return false
@@ -118,7 +118,7 @@ function filterReplaceSupported(input: SacredEventAdd): boolean {
   if (typeof key === 'string') return true
 
   sacredLogError(
-    'A number-keyed (array index) upsert() cannot also set replace: true - an array-index upsert already replaces that index outright.',
+    'A number-keyed (array index) upsert() cannot also set replace: true, since an array-index upsert already replaces that index outright.',
   )
 
   return false

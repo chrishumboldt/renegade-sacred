@@ -112,7 +112,7 @@ function objectReplaceValue(value: any, nextValue: any): any {
 
 // Assign `value` at a dot/bracket path within an existing object,
 // mutating it in place and creating any missing intermediate structure
-// along the way - same path format as objectCreateFromKeyValue, but
+// along the way, same path format as objectCreateFromKeyValue, but
 // targeting an object that already exists instead of building a fresh
 // one. Existing structure along the path (other than the final segment)
 // is left untouched, unlike objectMerge, which would recurse into and
