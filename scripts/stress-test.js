@@ -2,7 +2,7 @@
 // the way you'd use a Redux store: one root object, normalized entity
 // maps, UI state, and lots of small dispatched updates over its lifetime.
 //
-// This is deliberately kept out of `npm test` — it's not fast-suite
+// This is deliberately kept out of `npm test` since it's not fast-suite
 // material, it's a load test you run on demand.
 //
 // Usage: npm run build && npm run stress

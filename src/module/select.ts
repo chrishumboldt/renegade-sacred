@@ -11,7 +11,9 @@ export function sacredSelect<T, S>(
   selector: (value: T) => S,
   { isEqual = Object.is }: SacredSelectOptions<S> = {},
 ) {
-  const selectedValue = observable({ value: selector(sourceSacred.getValue()) })
+  const selectedValue = observable({
+    value: selector(sourceSacred.getValue()),
+  })
 
   // Already seeded the initial value above, so skip the redundant
   // immediate trigger here.

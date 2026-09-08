@@ -11,6 +11,12 @@ type ObjectUnsetInput = {
   input: object
 }
 
+type ObjectSetInput = {
+  key: string
+  input: object
+  value: any
+}
+
 export function objectClone(source: any): any {
   if (isArray(source)) {
     const newArray: any[] = []
@@ -102,6 +108,86 @@ function objectReplaceValue(value: any, nextValue: any): any {
   }
 
   return nextValue
+}
+
+// Assign `value` at a dot/bracket path within an existing object,
+// mutating it in place and creating any missing intermediate structure
+// along the way - same path format as objectCreateFromKeyValue, but
+// targeting an object that already exists instead of building a fresh
+// one. Existing structure along the path (other than the final segment)
+// is left untouched, unlike objectMerge, which would recurse into and
+// merge an array/object value sitting at the final segment too.
+export function objectSet({ key, input, value }: ObjectSetInput) {
+  if (!key) return input
+
+  const keySplit = key.split('.').filter(part => part !== '$')
+
+  keySplit.reduce((obj: any, part: string, index: number) => {
+    const { index: arrayIndex, prefix } = stringGetArrayPath(part)
+
+    if (arrayIndex !== undefined && obj[prefix] === undefined) {
+      obj[prefix] = []
+    }
+
+    if (index === keySplit.length - 1) {
+      if (arrayIndex !== undefined) {
+        obj[prefix][arrayIndex] = value
+        return obj[prefix][arrayIndex]
+      }
+
+      obj[part] = value
+      return obj[part]
+    }
+
+    if (arrayIndex !== undefined) {
+      if (obj[prefix][arrayIndex] === undefined) obj[prefix][arrayIndex] = {}
+      return obj[prefix][arrayIndex]
+    }
+
+    if (obj[part] === undefined) obj[part] = {}
+    return obj[part]
+  }, input)
+
+  return input
+}
+
+function objectSetAtPath(obj: any, parts: string[], value: any): any {
+  const [part, ...rest] = parts
+  const { index: arrayIndex, prefix } = stringGetArrayPath(part)
+  const isLast = rest.length === 0
+
+  if (arrayIndex !== undefined) {
+    if (prefix.length > 0) {
+      const result = { ...obj }
+      const array = obj[prefix] ? obj[prefix].slice() : []
+
+      array[arrayIndex] = isLast
+        ? value
+        : objectSetAtPath(array[arrayIndex], rest, value)
+
+      result[prefix] = array
+      return result
+    }
+
+    const result = obj ? obj.slice() : []
+
+    result[arrayIndex] = isLast
+      ? value
+      : objectSetAtPath(result[arrayIndex], rest, value)
+
+    return result
+  }
+
+  const result = { ...obj }
+  result[part] = isLast ? value : objectSetAtPath(obj[part], rest, value)
+
+  return result
+}
+
+export function objectSetImmutable({ key, input, value }: ObjectSetInput): any {
+  if (!key) return input
+
+  return objectSetAtPath(input, key.split('.'), value)
 }
 
 export function objectUnset({ key, input }: ObjectUnsetInput) {

@@ -4,7 +4,7 @@ Mutable state causes bugs that are hard to trace as values can change out from u
 
 Sacreds take the approach event-sourced systems use which is instead of copying the value, store the change. A Sacred keeps its original value forever and untouched. Every `upsert`/`unset` you make becomes an event in an append-only ledger instead of a mutation and `getValue()` gives you a value derived by folding that history over the original, not a separate absolute copy. Because reads are derived rather than reassigned, the same Sacred reference can be passed around indefinitely and will always reflect the latest state.
 
-This model also gives you undo and persistence essentially for free. `revert()` steps back through the event history and because that history is plain, JSON-serializable data, `sacredSerialize`/`sacredHydrate` can rebuild a Sacred exactly as it was. Types are also enforced as `sacred()` infers its type from the value you give it, so TypeScript catches a type-mismatched whole-value upsert (`sacredThing.upsert(...)`) at compile time, and the same mismatch is rejected at runtime with a console warning instead of silently changing the Sacred's type. Upserting via a key path (`sacredThing.upsert(..., { key: 'attributes.age' })`) targets a nested slice rather than the whole value, so it isn't practically type-checkable against a string path and stays loosely typed.
+This model also gives you undo and persistence essentially for free. `revert()` steps back through the event history (or `reset()` clears it entirely, back to the original value) and because that history is plain, JSON-serializable data, `sacredSerialize`/`sacredHydrate` can rebuild a Sacred exactly as it was. Types are also enforced as `sacred()` infers its type from the value you give it, so TypeScript catches a type-mismatched whole-value upsert (`sacredThing.upsert(...)`) at compile time, and the same mismatch is rejected at runtime with a console warning instead of silently changing the Sacred's type. Upserting via a key path (`sacredThing.upsert(..., { key: 'attributes.age' })`) targets a nested slice rather than the whole value, so it isn't practically type-checkable against a string path and stays loosely typed.
 
 - [Using a Sacred](#using-a-sacred)
 - [Sacred Change Only](#sacred-change-only)
@@ -15,8 +15,10 @@ This model also gives you undo and persistence essentially for free. `revert()` 
 - [Sacred Ledger](#sacred-ledger)
 - [Sacred Merge](#sacred-merge)
 - [Sacred Objects](#sacred-objects)
+- [Sacred Aggregate Option](#sacred-aggregate-option)
 - [Sacred Observers](#sacred-observers)
 - [Sacred Persist](#sacred-persist)
+- [Sacred Reset](#sacred-reset)
 - [Sacred Revert](#sacred-revert)
 - [Sacred Select](#sacred-select)
 - [Sacred Side Effects](#sacred-side-effects)
@@ -113,6 +115,8 @@ sacredThing.upsert('Young Ani', { key: 0 })
 
 sacredThing.getValue() // ['Young Ani', 'Padawan Skywalker', 'Jedi Knight Skywalker']
 ```
+
+If you want a whole-value upsert to replace the array outright instead of merging onto it, see [Sacred Aggregate Option](#sacred-aggregate-option).
 
 #### Sacred Async
 
@@ -397,6 +401,93 @@ sacredThing.getValue()
 }
 ```
 
+#### Sacred Aggregate Option
+
+The merging you've seen in [Sacred Arrays](#sacred-arrays) and [Sacred Objects](#sacred-objects) is the right behaviour for incremental changes, but it's the wrong one when an upsert is meant to be a full replacement snapshot rather than a partial change. A shrinking array or a shrinking set of keys leaves stale data behind, since nothing about a merge tells it to remove what the new value dropped. A key nested inside an object is just as affected, since the object merge recurses into it.
+
+```javascript
+import { sacred } from '@renegaderocks/sacred'
+
+const jediCouncil = sacred({
+  members: ['Yoda', 'Mace Windu', 'Ki-Adi-Mundi'],
+})
+
+jediCouncil.upsert({ members: ['Padmé'] })
+
+jediCouncil.getValue()
+// { members: ['Padmé', 'Mace Windu', 'Ki-Adi-Mundi'] }
+// 'Mace Windu' and 'Ki-Adi-Mundi' are still there. Only index 0 was
+// overwritten, since the nested array merges index-by-index rather than
+// being replaced outright.
+```
+
+A whole-value `upsert()` can opt just that one write out of merging by passing `replace: true`. The event is tagged on the ledger, and folding treats it as a full replacement of the aggregate rather than a merge onto it. Everything before that step is discarded there, and merging resumes normally for whatever comes after it. This is genuinely per-write, not per-sacred, since the same sacred can merge normally most of the time and still do the occasional hard reset.
+
+```javascript
+const jediCouncil = sacred({
+  members: ['Yoda', 'Mace Windu', 'Ki-Adi-Mundi'],
+})
+
+jediCouncil.upsert({ members: ['Padmé'] }, { replace: true })
+
+jediCouncil.getValue() // { members: ['Padmé'] }
+```
+
+`replace` also works on a string-keyed upsert. It replaces just the value at that key outright, leaving every sibling key untouched, which is the more surgical version of the whole-sacred reset above.
+
+```javascript
+const jediCouncil = sacred({
+  age: 1,
+  members: ['Yoda', 'Mace Windu', 'Ki-Adi-Mundi'],
+})
+
+jediCouncil.upsert(['Padmé'], { key: 'members', replace: true })
+
+jediCouncil.getValue() // { age: 1, members: ['Padmé'] }
+
+jediCouncil.logLedger()
+```
+
+The ledger records that this write replaced rather than merged, alongside which key it targeted:
+
+```bash
+Original Value
+{ age: 1, members: [ 'Yoda', 'Mace Windu', 'Ki-Adi-Mundi' ] }
+
+Events
+┌─────────┬────────────────────────────────────────────────────────────────────────┬──────────┬─────────────┐
+│ (index) │                                metadata                                │   type   │    value    │
+├─────────┼────────────────────────────────────────────────────────────────────────┼──────────┼─────────────┤
+│    0    │ { eventTimestamp: 1668998550015, replace: true, upsertKey: 'members' } │ 'upsert' │ [ 'Padmé' ] │
+└─────────┴────────────────────────────────────────────────────────────────────────┴──────────┴─────────────┘
+
+Value
+{ age: 1, members: [ 'Padmé' ] }
+```
+
+A whole-value replace (including the `aggregate: false` case below) shows the same `replace: true`, just without `upsertKey`, since there's no key involved.
+
+It doesn't extend to a numeric-keyed (array index) upsert, since that form already replaces the targeted index outright with no merge to opt out of (see [Sacred Arrays](#sacred-arrays)), so `replace` is dropped from that overload's type, and rejected at runtime (logs an error, same as a type mismatch) if it reaches the ledger anyway, e.g. via an `any` cast.
+
+If every write on a sacred should always replace rather than merge, pass `aggregate: false` when creating it instead of tagging each upsert individually. This is sugar over the same mechanism above. Every whole-value upsert on a sacred created this way is stamped `replace: true` automatically, and it also adds a stronger, permanent guarantee on top. `unset()` and keyed `upsert()` are dropped from the type entirely, not just rejected call-by-call, since a sacred that's always meant to be a full snapshot has no well-defined way to apply a partial change in the first place.
+
+```javascript
+const jediCouncil = sacred(
+  { members: ['Yoda', 'Mace Windu', 'Ki-Adi-Mundi'] },
+  { aggregate: false },
+)
+
+jediCouncil.upsert({ members: ['Padmé'] })
+
+jediCouncil.getValue() // { members: ['Padmé'] }
+
+jediCouncil.unset('members') // Compile error, unset() isn't part of this type
+```
+
+`aggregate` has no effect on primitive sacreds, which never fold their history in the first place. `aggregate: false` there is accepted but does nothing.
+
+Note this is a different concept from [Sacred Auto Aggregation](#sacred-auto-aggregation), which is about capping event history for memory and happens automatically regardless of either option.
+
 #### Sacred Observers
 
 It is possible to observe a sacred thing and react to its change. The observer pattern is very limited at this point but can be very powerful.
@@ -478,6 +569,25 @@ restored.getValue() // { name: 'Darth Vader' }
 ```
 
 `sacredHydrate` takes the same options as `sacred` (`eventLimit`, `changeOnly`, etc.) as an optional second argument, so a hydrated sacred behaves exactly like the original going forward. Where to actually store the serialized data is left up to you. Sacred has no opinion on localStorage vs. a database vs. anything else.
+
+#### Sacred Reset
+
+`reset()` clears the entire event history and returns the sacred to exactly the value it was constructed with. Observers are notified with that original value.
+
+```javascript
+import { sacred } from '@renegaderocks/sacred'
+
+const sacredThing = sacred({ age: 9 })
+
+sacredThing.upsert(10, { key: 'age' })
+sacredThing.upsert(11, { key: 'age' })
+
+sacredThing.reset()
+sacredThing.getValue() // { age: 9 }
+sacredThing.getEvents().length // 0
+```
+
+Unlike [`revert()`](#sacred-revert), `reset()` is not bounded by an `eventLimit` auto-aggregation boundary. There is nothing to fold back through, since the ledger is emptied outright, so it always recovers the original value even after older events have been collapsed. Writes made after a reset behave exactly as they would on a fresh sacred.
 
 #### Sacred Revert
 
