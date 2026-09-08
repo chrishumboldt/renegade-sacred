@@ -58,14 +58,11 @@ const initialState = {
 
 const store = sacred(initialState)
 
-// --- Phase 1: create posts -------------------------------------------------
+// Phase 1: create posts.
 //
-// IMPORTANT (found while building this): growing a nested array field by
-// repeatedly upserting a single-item replacement, e.g.
-//   store.upsert([id], { key: 'postIds' })
-// does NOT append. Merge is positional for arrays, so every call just
-// overwrites index 0 and prior entries are silently lost. The correct
-// pattern is an indexed key path per item: `postIds[i]`.
+// Growing a nested array field by repeatedly upserting a single-item
+// replacement does NOT append. Array merge is positional, so every call
+// overwrites index 0. Use an indexed key path per item: `postIds[i]`.
 timeIt(`Phase 1: dispatch ${POST_COUNT} "createPost" actions`, () => {
   for (let i = 0; i < POST_COUNT; i++) {
     const id = `post-${i}`
@@ -77,7 +74,7 @@ timeIt(`Phase 1: dispatch ${POST_COUNT} "createPost" actions`, () => {
   }
 })
 
-// --- Phase 2: add comments, referencing posts -------------------------------
+// Phase 2: add comments, referencing posts.
 timeIt(`Phase 2: dispatch ${COMMENT_COUNT} "addComment" actions`, () => {
   for (let i = 0; i < COMMENT_COUNT; i++) {
     const postId = `post-${i % POST_COUNT}`
@@ -89,8 +86,8 @@ timeIt(`Phase 2: dispatch ${COMMENT_COUNT} "addComment" actions`, () => {
   }
 })
 
-// --- Phase 3: mixed likes/UI churn (overwrites existing keys, doesn't grow
-// the entity count) -----------------------------------------------------------
+// Phase 3: mixed likes/UI churn. Overwrites existing keys, doesn't
+// grow the entity count.
 timeIt(`Phase 3: dispatch ${MISC_ACTION_COUNT} misc like/UI actions`, () => {
   for (let i = 0; i < MISC_ACTION_COUNT; i++) {
     const postId = `post-${i % POST_COUNT}`
@@ -106,7 +103,7 @@ timeIt(`Phase 3: dispatch ${MISC_ACTION_COUNT} misc like/UI actions`, () => {
   }
 })
 
-// --- Correctness checks ------------------------------------------------------
+// Correctness checks.
 console.log('\nCorrectness checks:')
 const finalValue = store.getValue()
 
@@ -138,34 +135,18 @@ check('untouched auth slice was never disturbed', finalValue.auth, initialState.
 
 console.log(`\n${checksPassed} correctness checks passed.`)
 
-// --- Read performance after a heavy write history ---------------------------
+// Read performance after a heavy write history.
 console.log()
 timeIt('100k getValue() reads after the write history above', () => {
   for (let i = 0; i < 100000; i++) store.getValue()
 })
 
-// --- Scaling behavior: a large flat entity map vs. small bounded slices ----
+// Scaling: a large flat entity map vs. small bounded slices.
 //
-// Writes now apply the newest event onto the previously cached value
-// instead of refolding the whole event history (see
-// sacredAggregateValueApply), and that cached value is only ever produced
-// via copy-on-write - untouched branches are shared by reference, touched
-// branches get a fresh one, and a value returned by an earlier getValue()
-// is never mutated by a later write (see immutability.test.ts).
-//
-// That fixed two real problems: writes to a small, bounded slice (auth,
-// ui, a single record) are now flat regardless of what else has
-// accumulated elsewhere in the tree, and eventLimit no longer needs to
-// re-fold a "snowball" event twice per write.
-//
-// It did NOT fix, and cannot fix without a fundamentally different data
-// structure: writing into a large flat collection (entities.posts with
-// thousands of keys) still costs roughly the size of that collection,
-// whether you're adding a new key or updating an existing one - because
-// `{ ...bigObject, oneKey: value }` is an unavoidable O(size) operation in
-// plain JS. This is not unique to this library; Redux/Immer have the same
-// characteristic for the same shape of update. eventLimit doesn't change
-// this either way - it only ever bounded the event log, not this.
+// Writes to a small bounded slice are flat, since only the touched
+// branch is rebuilt. Writing into one large flat map still costs its
+// size, since `{ ...bigObject, oneKey: value }` is O(size) in plain JS.
+// eventLimit only bounds the event log, not this.
 console.log('\nScaling check: writing into ONE large flat map as it grows')
 console.log('(this stays expensive regardless of eventLimit - see the comment above)\n')
 
@@ -190,7 +171,7 @@ function scalingRun(label, eventLimit) {
 scalingRun('eventLimit: 0 (unlimited)', 0)
 scalingRun('eventLimit: 1000 (default)', undefined)
 
-// --- sacredMerge stress, combineReducers-style ------------------------------
+// sacredMerge stress, combineReducers-style.
 console.log('\nsacredMerge: combining 3 slices, 5000 updates to one of them:')
 const authSlice = sacred(initialState.auth)
 const uiSlice = sacred(initialState.ui)
