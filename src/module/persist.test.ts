@@ -13,7 +13,10 @@ test('Test that sacredSerialize/sacredHydrate round-trips through JSON with the 
   const hydrated = sacredHydrate(json)
 
   assert.deepStrictEqual(hydrated.getValue(), original.getValue())
-  assert.deepStrictEqual(hydrated.getOriginalValue(), original.getOriginalValue())
+  assert.deepStrictEqual(
+    hydrated.getOriginalValue(),
+    original.getOriginalValue(),
+  )
   assert.strictEqual(hydrated.getEvents().length, original.getEvents().length)
 })
 

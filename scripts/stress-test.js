@@ -117,21 +117,37 @@ check(
   Object.keys(finalValue.entities.comments).length,
   COMMENT_COUNT,
 )
-check('postIds grew to the full count, in order', finalValue.postIds.length, POST_COUNT)
+check(
+  'postIds grew to the full count, in order',
+  finalValue.postIds.length,
+  POST_COUNT,
+)
 check('postIds[0] is post-0 (order preserved)', finalValue.postIds[0], 'post-0')
 check(
   `postIds[${POST_COUNT - 1}] is the last post (no gaps)`,
   finalValue.postIds[POST_COUNT - 1],
   `post-${POST_COUNT - 1}`,
 )
-check('a comment correctly references its post', finalValue.entities.comments['comment-0'].postId, 'post-0')
+check(
+  'a comment correctly references its post',
+  finalValue.entities.comments['comment-0'].postId,
+  'post-0',
+)
 check(
   'notifications grew instead of being clobbered',
   finalValue.ui.notifications.length,
   Math.ceil(MISC_ACTION_COUNT / 200),
 )
-check('untouched user data was never disturbed', finalValue.user, initialState.user)
-check('untouched auth slice was never disturbed', finalValue.auth, initialState.auth)
+check(
+  'untouched user data was never disturbed',
+  finalValue.user,
+  initialState.user,
+)
+check(
+  'untouched auth slice was never disturbed',
+  finalValue.auth,
+  initialState.auth,
+)
 
 console.log(`\n${checksPassed} correctness checks passed.`)
 
@@ -148,7 +164,9 @@ timeIt('100k getValue() reads after the write history above', () => {
 // size, since `{ ...bigObject, oneKey: value }` is O(size) in plain JS.
 // eventLimit only bounds the event log, not this.
 console.log('\nScaling check: writing into ONE large flat map as it grows')
-console.log('(this stays expensive regardless of eventLimit, see the comment above)\n')
+console.log(
+  '(this stays expensive regardless of eventLimit, see the comment above)\n',
+)
 
 function scalingRun(label, eventLimit) {
   const s = sacred({ entities: { items: {} } }, { eventLimit })
@@ -163,7 +181,9 @@ function scalingRun(label, eventLimit) {
     }
     const ms = Number(process.hrtime.bigint() - start) / 1e6
     console.log(
-      `    batch ${b}: ${ms.toFixed(1)}ms  (total entities: ${(b + 1) * BATCH}, events: ${s.getEvents().length})`,
+      `    batch ${b}: ${ms.toFixed(1)}ms  (total entities: ${
+        (b + 1) * BATCH
+      }, events: ${s.getEvents().length})`,
     )
   }
 }
