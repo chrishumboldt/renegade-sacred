@@ -15,11 +15,11 @@ export function sacredMerge<T extends readonly Sacred<any>[]>(
 
   // Keep the result in sync with every source sacred for the lifetime of
   // the merge.
-  const sourceObservers = sacreds.map((sourceSacred, index) =>
-    sourceSacred.observe(({ value }) => {
+  const sourceObservers = sacreds.map((sourceSacred, index) => {
+    return sourceSacred.observe(({ value }) => {
       result.upsert(value, { key: index })
-    }),
-  )
+    })
+  })
 
   // Return the observer function. Each call gets its own independent
   // subscription (mirrors Sacred.observe, which supports many concurrent

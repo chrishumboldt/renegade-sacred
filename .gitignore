@@ -1,3 +1,6 @@
 # Folders to ignore.
 dist/
 node_modules/
+
+# Files to ignore.
+STYLE.md

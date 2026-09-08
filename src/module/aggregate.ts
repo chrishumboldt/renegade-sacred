@@ -61,11 +61,9 @@ export function sacredAggregateObjectValue({
 }: SacredPassedIn) {
   const sacredType = isArray(originalValue) ? 'array' : typeof originalValue
 
-  return events.reduce(
-    (aggregate, event) =>
-      sacredAggregateValueApply({ aggregate, event, sacredType }),
-    objectClone(originalValue),
-  )
+  return events.reduce((aggregate, event) => {
+    return sacredAggregateValueApply({ aggregate, event, sacredType })
+  }, objectClone(originalValue))
 }
 
 // Aggregate an object into a value. When options.aggregate is explicitly
